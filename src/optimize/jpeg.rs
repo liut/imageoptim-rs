@@ -5,7 +5,7 @@ const DEFAULT_QUALITY: u8 = 85;
 pub struct JpegOptimizer;
 
 impl Optimizer for JpegOptimizer {
-    fn optimize(&self, bytes: &[u8], quality: Option<u8>) -> anyhow::Result<Vec<u8>> {
+    fn optimize(&self, bytes: &[u8], quality: Option<u8>, _lossy: bool) -> anyhow::Result<Vec<u8>> {
         let q = quality.unwrap_or(DEFAULT_QUALITY);
         let mut decoder = jpeg_decoder::Decoder::new(bytes);
         let pixels = decoder

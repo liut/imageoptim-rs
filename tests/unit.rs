@@ -39,7 +39,7 @@ fn png_optimizer_produces_valid_output() {
     let optimizer = PngOptimizer;
     let png_bytes = make_png();
     let optimized = optimizer
-        .optimize(&png_bytes, None)
+        .optimize(&png_bytes, None, false)
         .expect("optimize should succeed");
     assert!(
         optimized.len() < png_bytes.len(),
@@ -55,8 +55,12 @@ fn png_optimizer_produces_valid_output() {
 fn png_optimizer_keeps_already_optimal() {
     let optimizer = PngOptimizer;
     let png_bytes = make_png();
-    let optimized = optimizer.optimize(&png_bytes, None).expect("first pass");
-    let optimized2 = optimizer.optimize(&optimized, None).expect("second pass");
+    let optimized = optimizer
+        .optimize(&png_bytes, None, false)
+        .expect("first pass");
+    let optimized2 = optimizer
+        .optimize(&optimized, None, false)
+        .expect("second pass");
     // After first optimization, the file should be at a local minimum.
     assert!(optimized2.len() <= optimized.len());
 }

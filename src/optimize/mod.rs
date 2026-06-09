@@ -9,9 +9,12 @@ pub mod webp;
 /// Trait for format-specific optimizers.
 ///
 /// `quality` is a 0-100 lossy quality hint. It is honored by lossy
-/// formats (JPEG, WebP) and ignored by lossless formats (PNG, GIF, SVG).
+/// formats (JPEG, WebP) and ignored by lossless formats (GIF, SVG).
+/// For PNG, `lossy=true` enables palette quantization via libimagequant
+/// (reduces the image to up to 256 colors); when `lossy=false` the PNG
+/// is recompressed losslessly with `oxipng`.
 pub trait Optimizer: Send + Sync {
-    fn optimize(&self, bytes: &[u8], quality: Option<u8>) -> anyhow::Result<Vec<u8>>;
+    fn optimize(&self, bytes: &[u8], quality: Option<u8>, lossy: bool) -> anyhow::Result<Vec<u8>>;
 }
 
 pub fn for_format(format: Format) -> Box<dyn Optimizer> {

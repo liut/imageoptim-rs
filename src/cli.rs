@@ -25,6 +25,12 @@ pub struct Args {
     #[arg(long)]
     pub no_backup: bool,
 
+    /// Allow lossy optimization for PNG (palette quantization to 256
+    /// colors). Off by default. The output is still required to be
+    /// smaller than the input and to decode as a valid PNG.
+    #[arg(long)]
+    pub lossy: bool,
+
     /// Quality for lossy formats (0-100). Omit for lossless.
     #[arg(short, long, value_name = "0-100")]
     pub quality: Option<u8>,

@@ -3,7 +3,7 @@ name = "imageoptim"
 version = "0.1.0"
 edition = "2024"
 description = "Cross-platform image optimization CLI powered by native Rust crates"
-license = "MIT"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/JamieMason/ImageOptim-CLI"
 
 [dependencies]
@@ -36,6 +36,9 @@ version = "0.45"
 
 [dependencies.png]
 version = "0.17"
+
+[dependencies.imagequant]
+version = "4.4"
 
 [dependencies.image]
 version = "0.25"

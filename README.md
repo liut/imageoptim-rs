@@ -4,6 +4,8 @@ A cross-platform image optimization CLI powered by native Rust crates.
 
 Inspired by [`JamieMason/ImageOptim-CLI`](https://github.com/JamieMason/ImageOptim-CLI) (3.5k stars, archived 2023-11), but unlike the original — which is a macOS-only AppleScript orchestrator that drives GUI applications — `imageoptim-rs` uses Rust crates directly. It runs on macOS, Linux, and Windows with no runtime dependencies beyond the C standard library, and ships as a single static binary.
 
+> **License notice.** `imageoptim-rs` is licensed under **GPL-3.0-or-later**. This is a copyleft license: any binary you distribute that links against this code must also be GPL-3.0-or-later, and you must provide source. The GPL license is required because the optional lossy PNG path links against [libimagequant](https://github.com/ImageOptim/libimagequant), which is GPL. If you cannot accept GPL terms, do not use the binary.
+
 ## Install
 
 ```bash
@@ -49,13 +51,15 @@ imageoptim '**/*.{png,jpg,gif,webp,svg}' -j 4
 
 | Format | Optimizer | Notes |
 | --- | --- | --- |
-| PNG | `oxipng` | Lossless (quality flag ignored) |
+| PNG | `oxipng` (lossless) or `imagequant` (lossy with `--lossy`) | Lossless by default; `--lossy` quantizes to up to 256 colors |
 | JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding, default quality 85 |
 | GIF | `gif` crate | Indexed re-encoding with NeuQuant (quality flag ignored) |
 | WebP | `webp` + `image` | Lossy re-encoding when `--quality` is set, lossless otherwise |
 | SVG | `usvg` | Canonical re-serialization; not a full minifier (quality flag ignored) |
 
-`--quality <0-100>` controls the lossy quality for JPEG and WebP. Lower values produce smaller files at the cost of visual fidelity. It is silently ignored for PNG, GIF, and SVG, which are always lossless.
+`--quality <0-100>` controls the lossy quality for JPEG and WebP. It is silently ignored for GIF and SVG, which are always lossless.
+
+`--lossy` enables palette quantization for PNG. This is the same algorithm that powers [pngquant](https://pngquant.org/) and the "Lossy" checkbox in ImageOptim.app: each pixel's color is mapped to the nearest entry in a palette of up to 256 colors, which can shrink photographic PNGs by 50–80% at the cost of subtle color banding. The output remains a valid PNG, but it is no longer byte-identical to the original — keep the `.bak` (or pass `--dry-run`) when you first try it on real assets.
 
 ## Flags
 
@@ -70,6 +74,7 @@ Options:
       --dry-run          Show what would be done without modifying any files
       --no-color         Disable ANSI color output
       --no-backup        Skip creating `<path>.bak` before overwriting
+      --lossy            Allow lossy PNG palette quantization (off by default)
   -q, --quality <0-100>  Quality for lossy formats (0-100). Omit for lossless
   -j, --jobs <N>         Number of parallel workers
   -h, --help             Print help
@@ -120,7 +125,7 @@ Backups are skipped in `--dry-run` mode and can be disabled entirely with `--no-
 
 ## License
 
-MIT — see `LICENSE`.
+GPL-3.0-or-later — see `LICENSE`. Binaries linking this code (including the default build with the lossy PNG path) must also be distributed under GPL-3.0-or-later, and you must provide source to your recipients.
 
 ## Acknowledgments
 
