@@ -1,10 +1,10 @@
 use crate::detect::Format;
 
-mod png;
-mod jpeg;
-mod gif;
-mod webp;
-mod svg;
+pub mod png;
+pub mod jpeg;
+pub mod gif;
+pub mod webp;
+pub mod svg;
 
 /// Trait for format-specific optimizers.
 pub trait Optimizer: Send + Sync {

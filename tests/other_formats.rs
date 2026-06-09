@@ -1,0 +1,84 @@
+use imageoptim::detect::Format;
+use imageoptim::optimize::Optimizer;
+use imageoptim::optimize::gif::GifOptimizer;
+use imageoptim::optimize::jpeg::JpegOptimizer;
+use imageoptim::optimize::webp::WebpOptimizer;
+use imageoptim::optimize::svg::SvgOptimizer;
+use imageoptim::safety;
+
+fn make_jpeg() -> Vec<u8> {
+    use image::{ImageBuffer, Rgb};
+    let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::from_fn(8, 8, |x, y| Rgb([(x * 32) as u8, (y * 32) as u8, 128]));
+    let mut out = Vec::new();
+    image::DynamicImage::ImageRgb8(img)
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Jpeg)
+        .unwrap();
+    out
+}
+
+fn make_gif() -> Vec<u8> {
+    use image::{ImageBuffer, Rgb};
+    let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::from_fn(8, 8, |x, y| Rgb([(x * 32) as u8, (y * 32) as u8, 64]));
+    let mut out = Vec::new();
+    image::DynamicImage::ImageRgb8(img)
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Gif)
+        .unwrap();
+    out
+}
+
+fn make_webp() -> Vec<u8> {
+    use image::{ImageBuffer, Rgb};
+    let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::from_fn(8, 8, |x, y| Rgb([(x * 32) as u8, (y * 32) as u8, 64]));
+    let mut out = Vec::new();
+    image::DynamicImage::ImageRgb8(img)
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::WebP)
+        .unwrap();
+    out
+}
+
+fn make_svg() -> Vec<u8> {
+    br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect x="0" y="0" width="10" height="10" fill="red"/></svg>"#.to_vec()
+}
+
+#[test]
+fn jpeg_round_trip() {
+    let optimizer = JpegOptimizer;
+    let input = make_jpeg();
+    let output = optimizer.optimize(&input).expect("jpeg optimize");
+    if output.len() < input.len() {
+        assert!(safety::decode_valid(&output, Format::Jpeg), "JPEG output invalid");
+    }
+}
+
+#[test]
+fn gif_round_trip() {
+    let optimizer = GifOptimizer;
+    let input = make_gif();
+    let output = optimizer.optimize(&input).expect("gif optimize");
+    if output.len() < input.len() {
+        assert!(safety::decode_valid(&output, Format::Gif), "GIF output invalid");
+    }
+}
+
+#[test]
+fn webp_round_trip() {
+    let optimizer = WebpOptimizer;
+    let input = make_webp();
+    let output = optimizer.optimize(&input).expect("webp optimize");
+    if output.len() < input.len() {
+        assert!(safety::decode_valid(&output, Format::Webp), "WebP output invalid");
+    }
+}
+
+#[test]
+fn svg_round_trip() {
+    let optimizer = SvgOptimizer;
+    let input = make_svg();
+    let output = optimizer.optimize(&input).expect("svg optimize");
+    if output.len() < input.len() {
+        assert!(safety::decode_valid(&output, Format::Svg), "SVG output invalid");
+    }
+}

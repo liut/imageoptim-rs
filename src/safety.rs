@@ -24,7 +24,12 @@ fn png_valid(bytes: &[u8]) -> bool {
     let Ok(mut decoder) = png::Decoder::new(cursor).read_info() else {
         return false;
     };
-    let mut buf = vec![0u8; 1024];
+    let info = decoder.info();
+    let bytes_per_pixel = info.color_type.samples() * info.bit_depth as usize / 8;
+    let buf_size = (info.width as usize)
+        * (info.height as usize)
+        * bytes_per_pixel.max(1);
+    let mut buf = vec![0u8; buf_size];
     decoder.next_frame(&mut buf).is_ok()
 }
 
@@ -34,7 +39,12 @@ fn jpeg_valid(bytes: &[u8]) -> bool {
 }
 
 fn gif_valid(bytes: &[u8]) -> bool {
-    gif::Decoder::new(bytes).is_ok()
+    let mut options = gif::DecodeOptions::new();
+    options.set_color_output(gif::ColorOutput::RGBA);
+    match options.read_info(bytes) {
+        Ok(mut d) => d.read_next_frame().is_ok(),
+        Err(_) => false,
+    }
 }
 
 fn webp_valid(bytes: &[u8]) -> bool {
