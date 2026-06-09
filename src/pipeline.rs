@@ -103,8 +103,13 @@ fn optimize_file(path: &Path, format: Format, dry_run: bool) -> Outcome {
         return Outcome::Skipped;
     }
 
-    if !dry_run && let Err(e) = write_atomic(path, &optimized) {
-        return Outcome::Failed(e.to_string());
+    if !dry_run {
+        if let Err(e) = backup_if_needed(path, &original) {
+            return Outcome::Failed(e.to_string());
+        }
+        if let Err(e) = write_atomic(path, &optimized) {
+            return Outcome::Failed(e.to_string());
+        }
     }
 
     Outcome::Optimized(Stats::from_sizes(
@@ -120,6 +125,19 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     ));
     std::fs::write(&tmp, bytes)?;
     std::fs::rename(&tmp, path)
+}
+
+/// Copy the original file to `<path>.bak` if a backup does not already exist.
+/// Subsequent runs do not overwrite an existing `.bak`, so the first-run
+/// backup is always the pre-optimization original.
+fn backup_if_needed(path: &Path, original: &[u8]) -> std::io::Result<()> {
+    let mut bak = path.as_os_str().to_owned();
+    bak.push(".bak");
+    let bak = PathBuf::from(bak);
+    if bak.exists() {
+        return Ok(());
+    }
+    std::fs::write(&bak, original)
 }
 
 fn collect_files(patterns: &[String], recursive: bool) -> Result<Vec<PathBuf>, AppError> {

@@ -84,6 +84,16 @@ If either condition fails — for example, a file is already optimally compresse
 
 A file that fails to optimize (e.g. oxipng errors on a corrupt PNG) does not overwrite the original; processing continues for sibling files. The process exits with status code 1 if any file failed.
 
+### Backups (on by default)
+
+Before overwriting, `imageoptim-rs` copies the original file to `<path>.bak`. The backup is created on the **first** run for each file and is never overwritten by subsequent runs. To restore from backup:
+
+```bash
+mv foo.png.bak foo.png
+```
+
+Backups are skipped in `--dry-run` mode. They live next to the originals, so the file count roughly doubles during the first optimization pass — remember to clean them up once you're satisfied.
+
 ## Comparison to ImageOptim-CLI
 
 | | ImageOptim-CLI | imageoptim-rs |
