@@ -67,6 +67,7 @@ Options:
   -r, --recursive        Recurse into directories
       --dry-run          Show what would be done without modifying any files
       --no-color         Disable ANSI color output
+      --no-backup        Skip creating `<path>.bak` before overwriting
   -q, --quality <0-100>  Quality for lossy formats (0-100). Omit for lossless
   -j, --jobs <N>         Number of parallel workers
   -h, --help             Print help
@@ -92,7 +93,7 @@ Before overwriting, `imageoptim-rs` copies the original file to `<path>.bak`. Th
 mv foo.png.bak foo.png
 ```
 
-Backups are skipped in `--dry-run` mode. They live next to the originals, so the file count roughly doubles during the first optimization pass — remember to clean them up once you're satisfied.
+Backups are skipped in `--dry-run` mode and can be disabled entirely with `--no-backup` (the file is still optimized in place, just without the `.bak` copy). They live next to the originals, so the file count roughly doubles during the first optimization pass — remember to clean them up once you're satisfied.
 
 ## Comparison to ImageOptim-CLI
 

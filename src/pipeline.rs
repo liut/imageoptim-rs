@@ -28,6 +28,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
         .map_err(|e| AppError::Io(std::io::Error::other(format!("thread pool: {e}"))))?;
 
     let dry_run = args.dry_run;
+    let no_backup = args.no_backup;
     let results: Vec<(PathBuf, Format, Outcome)> = pool.install(|| {
         files
             .par_iter()
@@ -42,7 +43,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
                         );
                     }
                 };
-                let outcome = optimize_file(path, format, dry_run);
+                let outcome = optimize_file(path, format, dry_run, no_backup);
                 (path.clone(), format, outcome)
             })
             .collect()
@@ -84,7 +85,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
     Ok(())
 }
 
-fn optimize_file(path: &Path, format: Format, dry_run: bool) -> Outcome {
+fn optimize_file(path: &Path, format: Format, dry_run: bool, no_backup: bool) -> Outcome {
     let original = match std::fs::read(path) {
         Ok(b) => b,
         Err(e) => return Outcome::Failed(e.to_string()),
@@ -104,7 +105,7 @@ fn optimize_file(path: &Path, format: Format, dry_run: bool) -> Outcome {
     }
 
     if !dry_run {
-        if let Err(e) = backup_if_needed(path, &original) {
+        if !no_backup && let Err(e) = backup_if_needed(path, &original) {
             return Outcome::Failed(e.to_string());
         }
         if let Err(e) = write_atomic(path, &optimized) {

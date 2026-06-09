@@ -80,6 +80,31 @@ fn no_backup_in_dry_run() {
 }
 
 #[test]
+fn no_backup_flag_skips_backup_creation() {
+    let dir = tempfile::tempdir().unwrap();
+    let png = dir.path().join("a.png");
+    std::fs::write(&png, make_png()).unwrap();
+
+    let output = bin().arg(&png).arg("--no-backup").output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bak = dir.path().join("a.png.bak");
+    assert!(!bak.exists(), "--no-backup must not create .bak");
+
+    // The optimized file must still be written — --no-backup only skips the backup copy.
+    let after = std::fs::read(&png).unwrap();
+    let original = make_png();
+    assert_ne!(
+        after, original,
+        "file must still be optimized with --no-backup"
+    );
+}
+
+#[test]
 fn no_backup_when_safety_skips() {
     let dir = tempfile::tempdir().unwrap();
     let png = dir.path().join("already-optimal.png");

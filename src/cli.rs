@@ -20,6 +20,11 @@ pub struct Args {
     #[arg(long)]
     pub no_color: bool,
 
+    /// Skip creating `<path>.bak` before overwriting. The optimized file
+    /// is still written only when the safety contract holds.
+    #[arg(long)]
+    pub no_backup: bool,
+
     /// Quality for lossy formats (0-100). Omit for lossless.
     #[arg(short, long, value_name = "0-100")]
     pub quality: Option<u8>,
