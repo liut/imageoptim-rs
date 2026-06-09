@@ -1,0 +1,46 @@
+[package]
+name = "imageoptim"
+version = "0.1.0"
+edition = "2024"
+description = "Cross-platform image optimization CLI powered by native Rust crates"
+license = "MIT"
+repository = "https://github.com/JamieMason/ImageOptim-CLI"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+glob = "0.3"
+rayon = "1.10"
+thiserror = "1.0"
+anyhow = "1.0"
+walkdir = "2.5"
+jpeg-decoder = "0.3"
+jpeg-encoder = { version = "0.6", default-features = false }
+
+[dev-dependencies]
+tempfile = "3.13"
+
+[dependencies.oxipng]
+version = "9.1"
+default-features = false
+
+[dependencies.gif]
+version = "0.13"
+
+[dependencies.webp]
+version = "0.3"
+features = ["image"]
+
+[dependencies.usvg]
+version = "0.45"
+
+[dependencies.png]
+version = "0.17"
+
+[dependencies.image]
+version = "0.25"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

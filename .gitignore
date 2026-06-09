@@ -4,7 +4,7 @@
 *.pdb
 
 # Cargo
-**/Cargo.lock
+# (binary project: keep Cargo.lock for reproducible builds)
 
 # IDE
 .idea/
@@ -21,3 +21,8 @@ Thumbs.db
 
 # Local overrides
 *.local.*
+
+
+# Added by cargo
+
+/target
