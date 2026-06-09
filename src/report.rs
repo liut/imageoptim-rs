@@ -6,7 +6,6 @@ use crate::detect::Format;
 #[derive(Debug, Clone, Copy)]
 pub struct Stats {
     pub original: u64,
-    pub optimized: u64,
     pub saved: i64,
     pub percent: f64,
 }
@@ -21,18 +20,8 @@ impl Stats {
         };
         Self {
             original,
-            optimized,
             saved,
             percent,
-        }
-    }
-
-    pub const fn skipped() -> Self {
-        Self {
-            original: 0,
-            optimized: 0,
-            saved: 0,
-            percent: 0.0,
         }
     }
 }
@@ -45,7 +34,6 @@ pub enum Outcome {
 }
 
 pub struct Reporter {
-    pub use_color: bool,
     pub dry_run: bool,
 }
 
@@ -56,9 +44,8 @@ impl Reporter {
             Outcome::Optimized(s) => {
                 if self.dry_run {
                     println!(
-                        "  {label} {} {}would save {} ({:.2}%)",
+                        "  {label} {} would save {} ({:.2}%)",
                         path.display(),
-                        dim(""),
                         bytes_human(s.saved),
                         s.percent
                     );
@@ -82,15 +69,11 @@ impl Reporter {
 
     pub fn print_summary(&self, total_files: usize, total_saved: i64, total_pct: f64) {
         println!();
-        println!("Processed {total_files} files, saved {} ({:.2}%)", bytes_human(total_saved.max(0)), total_pct);
-    }
-}
-
-fn dim(s: &str) -> String {
-    if s.is_empty() {
-        String::new()
-    } else {
-        format!("\x1b[2m{s}\x1b[0m")
+        println!(
+            "Processed {total_files} files, saved {} ({:.2}%)",
+            bytes_human(total_saved.max(0)),
+            total_pct
+        );
     }
 }
 

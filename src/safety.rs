@@ -26,9 +26,7 @@ fn png_valid(bytes: &[u8]) -> bool {
     };
     let info = decoder.info();
     let bytes_per_pixel = info.color_type.samples() * info.bit_depth as usize / 8;
-    let buf_size = (info.width as usize)
-        * (info.height as usize)
-        * bytes_per_pixel.max(1);
+    let buf_size = (info.width as usize) * (info.height as usize) * bytes_per_pixel.max(1);
     let mut buf = vec![0u8; buf_size];
     decoder.next_frame(&mut buf).is_ok()
 }

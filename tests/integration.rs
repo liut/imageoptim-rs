@@ -23,10 +23,20 @@ fn exit_code_zero_on_success() {
     std::fs::write(&png_path, make_png()).unwrap();
 
     let output = bin().arg(&png_path).output().unwrap();
-    assert!(output.status.success(), "stderr: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("[PNG]"), "expected PNG label, got: {stdout}");
-    assert!(stdout.contains("saved"), "expected savings report, got: {stdout}");
+    assert!(
+        stdout.contains("[PNG]"),
+        "expected PNG label, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("saved"),
+        "expected savings report, got: {stdout}"
+    );
 }
 
 #[test]
@@ -43,7 +53,10 @@ fn dry_run_does_not_modify_file() {
     assert!(output.status.success());
 
     let after_bytes = std::fs::read(&png_path).unwrap();
-    assert_eq!(after_bytes, original_bytes, "file content changed in dry-run");
+    assert_eq!(
+        after_bytes, original_bytes,
+        "file content changed in dry-run"
+    );
 
     let mtime_after = std::fs::metadata(&png_path).unwrap().modified().unwrap();
     assert_eq!(mtime_before, mtime_after, "mtime changed in dry-run");
@@ -59,7 +72,10 @@ fn corrupt_file_does_not_overwrite_original() {
     std::fs::write(&good_path, make_png()).unwrap();
 
     let output = bin().arg(&png_path).arg(&good_path).output().unwrap();
-    assert!(!output.status.success(), "expected non-zero exit when a file fails");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit when a file fails"
+    );
 
     let after = std::fs::read(&png_path).unwrap();
     assert_eq!(after, original_corrupt, "corrupt file was overwritten!");
@@ -68,7 +84,11 @@ fn corrupt_file_does_not_overwrite_original() {
 #[test]
 fn no_matches_exits_nonzero() {
     let dir = tempfile::tempdir().unwrap();
-    let pattern = dir.path().join("nonexistent-*.png").to_string_lossy().to_string();
+    let pattern = dir
+        .path()
+        .join("nonexistent-*.png")
+        .to_string_lossy()
+        .to_string();
     let output = bin().arg(&pattern).output().unwrap();
     assert!(!output.status.success());
 }
@@ -85,7 +105,10 @@ fn glob_finds_pngs_in_directory() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let png_count = stdout.matches("[PNG]").count();
-    assert_eq!(png_count, 2, "expected 2 PNG reports, got {png_count}: {stdout}");
+    assert_eq!(
+        png_count, 2,
+        "expected 2 PNG reports, got {png_count}: {stdout}"
+    );
 }
 
 #[test]
@@ -102,7 +125,10 @@ fn recursive_flag_walks_subdirs() {
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("nested.png"), "recursive walk missed file: {stdout}");
+    assert!(
+        stdout.contains("nested.png"),
+        "recursive walk missed file: {stdout}"
+    );
 }
 
 #[test]

@@ -19,14 +19,13 @@ pub fn run(args: Args) -> Result<(), AppError> {
     }
 
     let reporter = Reporter {
-        use_color: !args.no_color,
         dry_run: args.dry_run,
     };
 
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(args.job_count())
         .build()
-        .map_err(|e| AppError::Optimize { path: "<pool>".into(), source: anyhow::anyhow!(e) })?;
+        .map_err(|e| AppError::Io(std::io::Error::other(format!("thread pool: {e}"))))?;
 
     let dry_run = args.dry_run;
     let results: Vec<(PathBuf, Format, Outcome)> = pool.install(|| {
@@ -40,7 +39,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
                             path.clone(),
                             Format::Png,
                             Outcome::Failed(format!("unsupported format: {}", path.display())),
-                        )
+                        );
                     }
                 };
                 let outcome = optimize_file(path, format, dry_run);
@@ -104,13 +103,14 @@ fn optimize_file(path: &Path, format: Format, dry_run: bool) -> Outcome {
         return Outcome::Skipped;
     }
 
-    if !dry_run {
-        if let Err(e) = write_atomic(path, &optimized) {
-            return Outcome::Failed(e.to_string());
-        }
+    if !dry_run && let Err(e) = write_atomic(path, &optimized) {
+        return Outcome::Failed(e.to_string());
     }
 
-    Outcome::Optimized(Stats::from_sizes(original.len() as u64, optimized.len() as u64))
+    Outcome::Optimized(Stats::from_sizes(
+        original.len() as u64,
+        optimized.len() as u64,
+    ))
 }
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {

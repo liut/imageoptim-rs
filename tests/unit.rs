@@ -1,7 +1,7 @@
-use imageoptim::safety;
 use imageoptim::detect::Format;
 use imageoptim::optimize::Optimizer;
 use imageoptim::optimize::png::PngOptimizer;
+use imageoptim::safety;
 
 #[test]
 fn detect_png_format() {
@@ -38,8 +38,13 @@ fn safety_rejects_equal_size() {
 fn png_optimizer_produces_valid_output() {
     let optimizer = PngOptimizer;
     let png_bytes = make_png();
-    let optimized = optimizer.optimize(&png_bytes).expect("optimize should succeed");
-    assert!(optimized.len() < png_bytes.len(), "optimized must be smaller");
+    let optimized = optimizer
+        .optimize(&png_bytes)
+        .expect("optimize should succeed");
+    assert!(
+        optimized.len() < png_bytes.len(),
+        "optimized must be smaller"
+    );
     assert!(
         safety::decode_valid(&optimized, Format::Png),
         "optimized PNG must be decodable"

@@ -1,14 +1,13 @@
 use crate::detect::Format;
 
-pub mod png;
-pub mod jpeg;
 pub mod gif;
-pub mod webp;
+pub mod jpeg;
+pub mod png;
 pub mod svg;
+pub mod webp;
 
 /// Trait for format-specific optimizers.
 pub trait Optimizer: Send + Sync {
-    fn format(&self) -> Format;
     fn optimize(&self, bytes: &[u8]) -> anyhow::Result<Vec<u8>>;
 }
 

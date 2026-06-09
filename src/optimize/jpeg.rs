@@ -1,13 +1,8 @@
-use crate::detect::Format;
 use crate::optimize::Optimizer;
 
 pub struct JpegOptimizer;
 
 impl Optimizer for JpegOptimizer {
-    fn format(&self) -> Format {
-        Format::Jpeg
-    }
-
     fn optimize(&self, bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
         let mut decoder = jpeg_decoder::Decoder::new(bytes);
         let pixels = decoder
@@ -20,7 +15,7 @@ impl Optimizer for JpegOptimizer {
         let mut out = Vec::with_capacity(bytes.len());
         let encoder = jpeg_encoder::Encoder::new(&mut out, 85);
         encoder
-            .encode(&pixels, info.width as u16, info.height as u16, color)
+            .encode(&pixels, info.width, info.height, color)
             .map_err(|e| anyhow::anyhow!("jpeg-encoder: {e}"))?;
         Ok(out)
     }

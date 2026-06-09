@@ -8,21 +8,8 @@ pub enum AppError {
     #[error("no files matched the given patterns")]
     NoMatches,
 
-    #[error("unsupported format: {0}")]
-    UnsupportedFormat(String),
-
-    #[error("file `{path}` is empty")]
-    EmptyFile { path: String },
-
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-
-    #[error("optimization failed for `{path}`: {source}")]
-    Optimize {
-        path: String,
-        #[source]
-        source: anyhow::Error,
-    },
 
     #[error("glob pattern `{pattern}` is invalid: {source}")]
     Glob {

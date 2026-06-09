@@ -1,13 +1,8 @@
-use crate::detect::Format;
 use crate::optimize::Optimizer;
 
 pub struct GifOptimizer;
 
 impl Optimizer for GifOptimizer {
-    fn format(&self) -> Format {
-        Format::Gif
-    }
-
     fn optimize(&self, bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
         let mut options = gif::DecodeOptions::new();
         options.set_color_output(gif::ColorOutput::RGBA);
@@ -18,8 +13,8 @@ impl Optimizer for GifOptimizer {
         let mut frames: Vec<(u16, u16, Vec<u8>, u16)> = Vec::new();
         while let Some(frame) = decoder.read_next_frame()? {
             frames.push((
-                frame.width as u16,
-                frame.height as u16,
+                frame.width,
+                frame.height,
                 frame.buffer.to_vec(),
                 frame.delay,
             ));

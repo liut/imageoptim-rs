@@ -1,13 +1,8 @@
-use crate::detect::Format;
 use crate::optimize::Optimizer;
 
 pub struct WebpOptimizer;
 
 impl Optimizer for WebpOptimizer {
-    fn format(&self) -> Format {
-        Format::Webp
-    }
-
     fn optimize(&self, bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
         let decoder = webp::Decoder::new(bytes);
         let image = decoder
