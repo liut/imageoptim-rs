@@ -49,11 +49,13 @@ imageoptim '**/*.{png,jpg,gif,webp,svg}' -j 4
 
 | Format | Optimizer | Notes |
 | --- | --- | --- |
-| PNG | `oxipng` | Lossless |
-| JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding at quality 85 |
-| GIF | `gif` crate | Indexed re-encoding with NeuQuant |
-| WebP | `webp` + `image` | Lossless re-encoding |
-| SVG | `usvg` | Canonical re-serialization (not full minification) |
+| PNG | `oxipng` | Lossless (quality flag ignored) |
+| JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding, default quality 85 |
+| GIF | `gif` crate | Indexed re-encoding with NeuQuant (quality flag ignored) |
+| WebP | `webp` + `image` | Lossy re-encoding when `--quality` is set, lossless otherwise |
+| SVG | `usvg` | Canonical re-serialization; not a full minifier (quality flag ignored) |
+
+`--quality <0-100>` controls the lossy quality for JPEG and WebP. Lower values produce smaller files at the cost of visual fidelity. It is silently ignored for PNG, GIF, and SVG, which are always lossless.
 
 ## Flags
 

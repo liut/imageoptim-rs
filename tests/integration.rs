@@ -140,3 +140,50 @@ fn jobs_flag_is_accepted() {
     let output = bin().arg(&png_path).arg("-j").arg("1").output().unwrap();
     assert!(output.status.success());
 }
+
+#[test]
+fn quality_flag_changes_jpeg_output_size() {
+    let dir = tempfile::tempdir().unwrap();
+    let high = dir.path().join("high.jpg");
+    let low = dir.path().join("low.jpg");
+    let jpg = make_jpeg();
+    std::fs::write(&high, &jpg).unwrap();
+    std::fs::write(&low, &jpg).unwrap();
+
+    let h = bin()
+        .arg(&high)
+        .arg("-q")
+        .arg("95")
+        .arg("--no-backup")
+        .output()
+        .unwrap();
+    let l = bin()
+        .arg(&low)
+        .arg("-q")
+        .arg("20")
+        .arg("--no-backup")
+        .output()
+        .unwrap();
+    assert!(h.status.success() && l.status.success());
+
+    let h_size = std::fs::metadata(&high).unwrap().len();
+    let l_size = std::fs::metadata(&low).unwrap().len();
+    assert!(
+        l_size < h_size,
+        "q=20 ({l_size}) must be smaller than q=95 ({h_size})"
+    );
+}
+
+fn make_jpeg() -> Vec<u8> {
+    use image::{ImageBuffer, Rgb};
+    let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::from_fn(64, 64, |x, y| Rgb([(x * 4) as u8, (y * 4) as u8, 128]));
+    let mut out = Vec::new();
+    image::DynamicImage::ImageRgb8(img)
+        .write_to(
+            &mut std::io::Cursor::new(&mut out),
+            image::ImageFormat::Jpeg,
+        )
+        .unwrap();
+    out
+}

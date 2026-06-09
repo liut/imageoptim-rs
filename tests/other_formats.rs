@@ -53,7 +53,7 @@ fn make_svg() -> Vec<u8> {
 fn jpeg_round_trip() {
     let optimizer = JpegOptimizer;
     let input = make_jpeg();
-    let output = optimizer.optimize(&input).expect("jpeg optimize");
+    let output = optimizer.optimize(&input, None).expect("jpeg optimize");
     if output.len() < input.len() {
         assert!(
             safety::decode_valid(&output, Format::Jpeg),
@@ -66,7 +66,7 @@ fn jpeg_round_trip() {
 fn gif_round_trip() {
     let optimizer = GifOptimizer;
     let input = make_gif();
-    let output = optimizer.optimize(&input).expect("gif optimize");
+    let output = optimizer.optimize(&input, None).expect("gif optimize");
     if output.len() < input.len() {
         assert!(
             safety::decode_valid(&output, Format::Gif),
@@ -79,7 +79,7 @@ fn gif_round_trip() {
 fn webp_round_trip() {
     let optimizer = WebpOptimizer;
     let input = make_webp();
-    let output = optimizer.optimize(&input).expect("webp optimize");
+    let output = optimizer.optimize(&input, None).expect("webp optimize");
     if output.len() < input.len() {
         assert!(
             safety::decode_valid(&output, Format::Webp),
@@ -92,11 +92,25 @@ fn webp_round_trip() {
 fn svg_round_trip() {
     let optimizer = SvgOptimizer;
     let input = make_svg();
-    let output = optimizer.optimize(&input).expect("svg optimize");
+    let output = optimizer.optimize(&input, None).expect("svg optimize");
     if output.len() < input.len() {
         assert!(
             safety::decode_valid(&output, Format::Svg),
             "SVG output invalid"
         );
     }
+}
+
+#[test]
+fn jpeg_quality_affects_output_size() {
+    let optimizer = JpegOptimizer;
+    let input = make_jpeg();
+    let high = optimizer.optimize(&input, Some(95)).expect("q=95");
+    let low = optimizer.optimize(&input, Some(20)).expect("q=20");
+    assert!(
+        low.len() < high.len(),
+        "q=20 ({}) should produce smaller output than q=95 ({})",
+        low.len(),
+        high.len()
+    );
 }
