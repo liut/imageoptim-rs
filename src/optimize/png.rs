@@ -23,8 +23,10 @@ fn optimize_lossy(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     let (pixels, width, height) = decode_rgba(bytes)?;
 
     // 2. Quantize to a palette of at most 256 colors.
+    //    Mirrors ImageOptim.app's defaults: PngMinQuality=80 → quality
+    //    range 80-100, level=4 → speed = MIN(3, 7-4) = 3.
     let mut attr = imagequant::Attributes::new();
-    attr.set_quality(0, 100)
+    attr.set_quality(80, 100)
         .context("imagequant: set_quality")?;
     attr.set_speed(3).context("imagequant: set_speed")?;
     let mut img = attr
@@ -34,7 +36,16 @@ fn optimize_lossy(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     let (palette, indices) = res.remapped(&mut img).context("imagequant: remapped")?;
 
     // 3. Encode as an 8-bit palette PNG.
-    encode_palette(width, height, &palette, &indices)
+    let palette_png = encode_palette(width, height, &palette, &indices)?;
+
+    // 4. Hand the palette PNG back through oxipng (preset 4, matching
+    //    ImageOptim's default AdvPngLevel=4). The palette is small but
+    //    the indexed pixel data still has zlib entropy that oxipng can
+    //    crush further with the right filter / window combo. This is
+    //    the step that takes us from ~32% to ~64% on photographic PNGs.
+    let opts = oxipng::Options::from_preset(4);
+    oxipng::optimize_from_memory(&palette_png, &opts)
+        .map_err(|e| anyhow::anyhow!("oxipng (post-pngquant): {e}"))
 }
 
 fn decode_rgba(bytes: &[u8]) -> anyhow::Result<(Vec<imagequant::RGBA>, usize, usize)> {
