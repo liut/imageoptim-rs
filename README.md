@@ -85,6 +85,13 @@ If either condition fails — for example, a file is already optimally compresse
 
 A file that fails to optimize (e.g. oxipng errors on a corrupt PNG) does not overwrite the original; processing continues for sibling files. The process exits with status code 1 if any file failed.
 
+### Progress bar
+
+When stderr is attached to a terminal, `imageoptim-rs` draws a progress bar during processing. The bar is automatically suppressed when:
+
+- stdout/stderr is redirected (e.g. piped to a file or another command), so logs stay clean
+- `--dry-run` is set, since there is nothing to wait on
+
 ### Backups (on by default)
 
 Before overwriting, `imageoptim-rs` copies the original file to `<path>.bak`. The backup is created on the **first** run for each file and is never overwritten by subsequent runs. To restore from backup:

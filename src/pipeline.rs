@@ -4,6 +4,7 @@ use crate::error::AppError;
 use crate::report::{Outcome, Reporter, Stats};
 use crate::safety;
 
+use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -29,25 +30,46 @@ pub fn run(args: Args) -> Result<(), AppError> {
 
     let dry_run = args.dry_run;
     let no_backup = args.no_backup;
+    let show_progress = !dry_run && std::io::IsTerminal::is_terminal(&std::io::stderr());
+    let pb = if show_progress {
+        let pb = indicatif::ProgressBar::new(files.len() as u64);
+        pb.set_style(
+            indicatif::ProgressStyle::with_template(
+                "{spinner:.green} [{bar:30.cyan/blue}] {pos}/{len} {msg}",
+            )
+            .unwrap()
+            .progress_chars("=>-"),
+        );
+        Some(pb)
+    } else {
+        None
+    };
+
     let results: Vec<(PathBuf, Format, Outcome)> = pool.install(|| {
-        files
-            .par_iter()
-            .map(|path| {
-                let format = match Format::from_path(path) {
-                    Some(f) => f,
-                    None => {
-                        return (
-                            path.clone(),
-                            Format::Png,
-                            Outcome::Failed(format!("unsupported format: {}", path.display())),
-                        );
-                    }
-                };
-                let outcome = optimize_file(path, format, dry_run, no_backup);
-                (path.clone(), format, outcome)
-            })
-            .collect()
+        let iter = files.par_iter().map(|path| {
+            let format = match Format::from_path(path) {
+                Some(f) => f,
+                None => {
+                    return (
+                        path.clone(),
+                        Format::Png,
+                        Outcome::Failed(format!("unsupported format: {}", path.display())),
+                    );
+                }
+            };
+            let outcome = optimize_file(path, format, dry_run, no_backup);
+            (path.clone(), format, outcome)
+        });
+        if let Some(pb) = pb.clone() {
+            iter.progress_with(pb).collect()
+        } else {
+            iter.collect()
+        }
     });
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
 
     let mut total_files = 0;
     let mut total_saved: i64 = 0;
