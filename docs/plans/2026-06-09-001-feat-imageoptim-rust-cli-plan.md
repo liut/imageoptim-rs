@@ -6,6 +6,11 @@ date: 2026-06-09
 origin: docs/brainstorms/2026-06-09-imageoptim-rust-cli-requirements.md
 ---
 
+> **Plan deviations (2026-06-10):**
+> 1. **LICENSE is GPL-3.0-or-later, not MIT.** The plan originally specified MIT, but the `--lossy` PNG path depends on `libimagequant` (GPL-3.0). Linking a GPL-3.0-or-later crate forces the whole crate to GPL-3.0-or-later under standard copyleft interpretation. The user accepted this trade-off; the LICENSE file and `Cargo.toml` `license` field both reflect it.
+> 2. **JPEG: `jpeg-encoder` (pure Rust) is the v1 implementation, not `mozjpeg`.** The plan listed `mozjpeg` as preferred with `jpeg-encoder` as fallback. Cross-platform build complexity of `mozjpeg` (Windows MSVC, musl) made the pure-Rust fallback the pragmatic default. The compression ratio gap is real but acceptable for v1.
+> 3. **Test fixtures are generated, not committed.** The plan called for `tests/fixtures/` with small sample images, ≤ 50 KB total. In practice the regression tests need a *realistic* (multi-megabyte) photo to exercise the lossy pipeline. The committed tree is now fixture-free; `cargo run --example gen-fixtures` writes the photo to `tests/example01.png` on demand, and the file is git-ignored. `tests/*.png` is the global ignore pattern.
+
 # Build imageoptim-rs — Rust CLI Image Optimizer
 
 ## Overview
@@ -211,3 +216,42 @@ imageoptim-rs/
 ### Related Work
 
 - (none)
+
+## Next Steps (post-v1)
+
+Items discussed during the 2026-06-10 build but deferred to a follow-up. Captured here so they don't get lost.
+
+### SVG: stronger minifier (DEFERRED — investigated, not worth it)
+
+`usvg` canonicalizes (parses → re-serializes) but does not minify. Empirically, on a 799-byte test SVG with redundant metadata, `usvg` reaches 468 bytes (41%); `svgo` (Node.js) reaches 372 bytes (54%). The 13-percentage-point gap is real but does not justify the trade-offs:
+
+- **Shell-out to `svgcleaner`**: same pattern as the existing `zopflipng` integration, but `svgcleaner` is less commonly installed than `zopflipng` and the upstream repo has been quiet since 2021. The `svgcleaner` distribution is also a non-trivial Rust CLI build (`cargo install svgcleaner` requires the toolchain).
+- **`svgo-rs` crate**: license is GPL-3.0-or-later, same as our `imagequant` choice — would lock the crate to GPL (already locked). Pure-Rust would be the only benefit. The crate is less actively maintained than `svgo` itself.
+
+Decision: stay with `usvg`. The README is honest about it: "canonicalize, not minify". The 13-point gap is acceptable for v1; revisit if real users complain.
+
+### `--output-dir <DIR>` flag
+
+Write optimized files into `<DIR>/<stem>_s<ext>` instead of overwriting the input. The flag is already declared in `cli.rs` (`Args::output_dir: Option<PathBuf>`) and parsed by clap, but the pipeline does not yet route through it. Wiring needs:
+
+- Pass `output_dir` through `optimize_file` to the write site.
+- Conflict policy: if `<stem>_s<ext>` exists in `<DIR>`, append `-1`, `-2`, ... rather than clobbering.
+- `--no-backup` is implicit when `--output-dir` is set (the input is not touched).
+- End-to-end test in `tests/output_dir.rs`.
+
+### `--fail-fast` mode
+
+Currently, processing continues after a per-file error and the exit code is 1 if any file failed. A `--fail-fast` flag would short-circuit on the first error. Useful for CI pipelines where any failure should stop the build.
+
+### `*.tmp` cleanup
+
+`write_atomic` writes to `path.tmp` and renames over the original. If the `rename` call fails, the `path.tmp` is left behind. The plan originally listed this as a "nice-to-have, not v1" — keeping it out of v1. A future `--clean-tmp` sweep or a startup scan for stale `*.tmp` files would be the fix.
+
+### Release pipeline
+
+No GitHub Actions / release automation yet. The plan stops at "single binary builds." Open questions for release:
+
+- Pre-built binaries via `cargo dist` or `cross` for linux x86_64 / aarch64 / windows.
+- `cargo install --path .` works locally but isn't a distribution story.
+- Tagging convention (v0.1.0?) and CHANGELOG.
+- Homebrew formula? `cargo install` is the documented install path.

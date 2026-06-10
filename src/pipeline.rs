@@ -19,6 +19,12 @@ pub fn run(args: Args) -> Result<(), AppError> {
         return Err(AppError::NoMatches);
     }
 
+    // Create the output directory up front so per-file writes don't race
+    // to mkdir the same path. Only relevant when --output-dir is set.
+    if let Some(dir) = args.output_dir.as_ref() {
+        std::fs::create_dir_all(dir).map_err(AppError::Io)?;
+    }
+
     let reporter = Reporter {
         dry_run: args.dry_run,
     };
@@ -29,10 +35,13 @@ pub fn run(args: Args) -> Result<(), AppError> {
         .map_err(|e| AppError::Io(std::io::Error::other(format!("thread pool: {e}"))))?;
 
     let dry_run = args.dry_run;
-    let no_backup = args.no_backup;
+    // --output-dir means the input is never touched, so --no-backup is implicit.
+    let no_backup = args.no_backup || args.output_dir.is_some();
     let quality = args.quality;
     let lossy = args.lossy;
     let no_zopfli = args.no_zopfli;
+    let fail_fast = args.fail_fast;
+    let output_dir = args.output_dir.clone();
     let show_progress = !dry_run && std::io::IsTerminal::is_terminal(&std::io::stderr());
     let pb = if show_progress {
         let pb = indicatif::ProgressBar::new(files.len() as u64);
@@ -60,8 +69,16 @@ pub fn run(args: Args) -> Result<(), AppError> {
                     );
                 }
             };
-            let outcome =
-                optimize_file(path, format, dry_run, no_backup, quality, lossy, no_zopfli);
+            let outcome = optimize_file(
+                path,
+                format,
+                dry_run,
+                no_backup,
+                quality,
+                lossy,
+                no_zopfli,
+                output_dir.as_deref(),
+            );
             (path.clone(), format, outcome)
         });
         if let Some(pb) = pb.clone() {
@@ -106,11 +123,19 @@ pub fn run(args: Args) -> Result<(), AppError> {
     reporter.print_summary(total_files, total_saved, total_pct);
 
     if any_failed {
-        std::process::exit(1);
+        if fail_fast {
+            // Exit immediately. The summary still printed (the partial
+            // report is more useful than a bare exit code), and the
+            // exit code distinguishes partial-failure from all-success
+            // for the shell.
+            std::process::exit(1);
+        }
+        return Err(AppError::AnyFileFailed);
     }
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn optimize_file(
     path: &Path,
     format: Format,
@@ -119,6 +144,7 @@ fn optimize_file(
     quality: Option<u8>,
     lossy: bool,
     no_zopfli: bool,
+    output_dir: Option<&Path>,
 ) -> Outcome {
     let original = match std::fs::read(path) {
         Ok(b) => b,
@@ -138,11 +164,30 @@ fn optimize_file(
         return Outcome::Skipped;
     }
 
+    // Determine the write target. With --output-dir, write to
+    // <output_dir>/<stem>_s<ext> (with collision suffix -1, -2, ...).
+    // Otherwise overwrite the input in place via a temp file + rename.
+    let (target, via_tmp) = match output_dir {
+        Some(dir) => {
+            let target = match unique_output_path(dir, path) {
+                Ok(t) => t,
+                Err(e) => return Outcome::Failed(e.to_string()),
+            };
+            (target, false)
+        }
+        None => (path.to_path_buf(), true),
+    };
+
     if !dry_run {
         if !no_backup && let Err(e) = backup_if_needed(path, &original) {
             return Outcome::Failed(e.to_string());
         }
-        if let Err(e) = write_atomic(path, &optimized) {
+        let write_result = if via_tmp {
+            write_atomic(&target, &optimized)
+        } else {
+            std::fs::write(&target, &optimized)
+        };
+        if let Err(e) = write_result {
             return Outcome::Failed(e.to_string());
         }
     }
@@ -153,13 +198,49 @@ fn optimize_file(
     ))
 }
 
+/// Build the output path `<dir>/<stem>_s<ext>`, with a `-N` numeric
+/// suffix when `<stem>_s<ext>` is already taken. The numbering starts
+/// at `-1` and increments until a free path is found.
+fn unique_output_path(dir: &Path, input: &Path) -> std::io::Result<PathBuf> {
+    let stem = input
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "no file stem"))?;
+    let ext = input.extension().and_then(|s| s.to_str()).unwrap_or("");
+
+    let candidate = dir.join(format!("{stem}_s.{ext}"));
+    if !candidate.exists() {
+        return Ok(candidate);
+    }
+    for n in 1..=u32::MAX {
+        let c = dir.join(format!("{stem}_s-{n}.{ext}"));
+        if !c.exists() {
+            return Ok(c);
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "exhausted suffixes",
+    ))
+}
+
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let tmp = path.with_extension(format!(
         "{}.tmp",
         path.extension().and_then(|s| s.to_str()).unwrap_or("")
     ));
     std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, path)
+    match std::fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            // Best-effort cleanup of the temp file we wrote. If the
+            // cleanup itself fails, we still surface the original rename
+            // error — the user can find the .tmp later or use a future
+            // --clean-tmp sweep.
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
 }
 
 /// Copy the original file to `<path>.bak` if a backup does not already exist.

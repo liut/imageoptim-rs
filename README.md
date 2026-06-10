@@ -76,6 +76,8 @@ Options:
       --no-backup        Skip creating `<path>.bak` before overwriting
       --lossy            Allow lossy PNG palette quantization (off by default)
       --no-zopfli        Skip the optional `zopflipng` post-pass on `--lossy`
+      --output-dir <DIR> Write optimized files into `<DIR>/<stem>_s<ext>` instead of overwriting
+      --fail-fast        Stop processing on the first per-file error
   -q, --quality <0-100>  Quality for lossy formats (0-100). Omit for lossless
   -j, --jobs <N>         Number of parallel workers
   -h, --help             Print help
@@ -133,6 +135,26 @@ mv foo.png.bak foo.png
 ```
 
 Backups are skipped in `--dry-run` mode and can be disabled entirely with `--no-backup` (the file is still optimized in place, just without the `.bak` copy). They live next to the originals, so the file count roughly doubles during the first optimization pass — remember to clean them up once you're satisfied.
+
+### Output directory (no in-place writes)
+
+`--output-dir <DIR>` writes each optimized file to `<DIR>/<stem>_s<ext>` instead of overwriting the input in place. The input is left untouched, so `--no-backup` is implicit and no `.bak` files are produced. The target directory is created if it does not exist.
+
+If `<stem>_s<ext>` already exists in `<DIR>`, a numeric suffix is appended: `foo_s-1.png`, `foo_s-2.png`, etc. Nothing is ever clobbered silently.
+
+```bash
+# Side-by-side comparison: original next to optimized
+imageoptim assets/*.png --output-dir out/
+
+# assets/foo.png  →  out/foo_s.png
+# assets/bar.jpg  →  out/bar_s.jpg
+```
+
+This is the recommended way to A/B-compare results before committing to a rewrite in place.
+
+### Fail-fast
+
+By default, every file is processed even after a per-file error, and the final exit code is 1 if any file failed. Pass `--fail-fast` to short-circuit and exit immediately on the first error. Useful in CI pipelines where any failure should stop the build.
 
 ## Development
 

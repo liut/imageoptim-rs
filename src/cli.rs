@@ -55,6 +55,15 @@ pub struct Args {
     /// Number of parallel workers.
     #[arg(short, long, value_name = "N")]
     pub jobs: Option<usize>,
+
+    /// Stop processing on the first per-file error. By default, every
+    /// file is processed and a per-file error summary is printed at the
+    /// end (the exit code is still 1 if any file failed). Pass
+    /// `--fail-fast` to short-circuit and exit immediately on the first
+    /// error. Useful in CI pipelines where any failure should stop the
+    /// build.
+    #[arg(long)]
+    pub fail_fast: bool,
 }
 
 impl Args {
