@@ -125,8 +125,10 @@ fn no_backup_when_safety_skips() {
 
 #[test]
 fn real_image_fixture_actually_shrinks() {
-    // Verifies the tool works end-to-end on a realistic 2MB PNG fixture.
-    // This file is in tests/ but is git-ignored (not committed).
+    // Verifies the tool works end-to-end on the ~2-3MB synthetic
+    // photo fixture in tests/example01.png. The fixture is generated
+    // on demand by `cargo run --example gen-fixtures` and is
+    // git-ignored — not part of the committed tree.
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/example01.png");
     if !fixture.exists() {
         eprintln!("skipping: {} not present", fixture.display());

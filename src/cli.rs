@@ -39,6 +39,15 @@ pub struct Args {
     #[arg(long)]
     pub no_zopfli: bool,
 
+    /// Write optimized files into `<DIR>` instead of overwriting the
+    /// inputs in place. Each output is named `<stem>_s<ext>`; if a file
+    /// with that name already exists, a numeric suffix (`-1`, `-2`, ...)
+    /// is appended to avoid clobbering. The original input is left
+    /// untouched, so `--no-backup` is implicit when this flag is set.
+    /// The directory is created if it does not already exist.
+    #[arg(long, value_name = "DIR")]
+    pub output_dir: Option<std::path::PathBuf>,
+
     /// Quality for lossy formats (0-100). Omit for lossless.
     #[arg(short, long, value_name = "0-100")]
     pub quality: Option<u8>,
