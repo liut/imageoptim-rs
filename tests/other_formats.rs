@@ -54,7 +54,7 @@ fn jpeg_round_trip() {
     let optimizer = JpegOptimizer;
     let input = make_jpeg();
     let output = optimizer
-        .optimize(&input, None, false)
+        .optimize(&input, None, false, false)
         .expect("jpeg optimize");
     if output.len() < input.len() {
         assert!(
@@ -69,7 +69,7 @@ fn gif_round_trip() {
     let optimizer = GifOptimizer;
     let input = make_gif();
     let output = optimizer
-        .optimize(&input, None, false)
+        .optimize(&input, None, false, false)
         .expect("gif optimize");
     if output.len() < input.len() {
         assert!(
@@ -84,7 +84,7 @@ fn webp_round_trip() {
     let optimizer = WebpOptimizer;
     let input = make_webp();
     let output = optimizer
-        .optimize(&input, None, false)
+        .optimize(&input, None, false, false)
         .expect("webp optimize");
     if output.len() < input.len() {
         assert!(
@@ -99,7 +99,7 @@ fn svg_round_trip() {
     let optimizer = SvgOptimizer;
     let input = make_svg();
     let output = optimizer
-        .optimize(&input, None, false)
+        .optimize(&input, None, false, false)
         .expect("svg optimize");
     if output.len() < input.len() {
         assert!(
@@ -113,8 +113,12 @@ fn svg_round_trip() {
 fn jpeg_quality_affects_output_size() {
     let optimizer = JpegOptimizer;
     let input = make_jpeg();
-    let high = optimizer.optimize(&input, Some(95), false).expect("q=95");
-    let low = optimizer.optimize(&input, Some(20), false).expect("q=20");
+    let high = optimizer
+        .optimize(&input, Some(95), false, false)
+        .expect("q=95");
+    let low = optimizer
+        .optimize(&input, Some(20), false, false)
+        .expect("q=20");
     assert!(
         low.len() < high.len(),
         "q=20 ({}) should produce smaller output than q=95 ({})",
@@ -136,8 +140,12 @@ fn png_lossy_smaller_than_lossless() {
     }
     let input = std::fs::read(&fixture).expect("read fixture");
     let optimizer = PngOptimizer;
-    let lossless = optimizer.optimize(&input, None, false).expect("lossless");
-    let lossy = optimizer.optimize(&input, None, true).expect("lossy");
+    let lossless = optimizer
+        .optimize(&input, None, false, false)
+        .expect("lossless");
+    let lossy = optimizer
+        .optimize(&input, None, true, false)
+        .expect("lossy");
     assert!(
         lossy.len() < lossless.len(),
         "lossy ({}) must be smaller than lossless ({}) for a real photo",
@@ -148,5 +156,22 @@ fn png_lossy_smaller_than_lossless() {
     assert!(
         safety::decode_valid(&lossy, Format::Png),
         "lossy PNG output must decode successfully"
+    );
+    // The --no-zopfli flag is honored: calling lossy with no_zopfli=true
+    // must still produce a smaller output. (We can't assert equality
+    // with the lossy path because zopflipng may or may not be installed
+    // on the test host.)
+    let lossy_no_zopfli = optimizer
+        .optimize(&input, None, true, true)
+        .expect("lossy --no-zopfli");
+    assert!(
+        lossy_no_zopfli.len() < lossless.len(),
+        "lossy --no-zopfli ({}) must still be smaller than lossless ({})",
+        lossy_no_zopfli.len(),
+        lossless.len()
+    );
+    assert!(
+        safety::decode_valid(&lossy_no_zopfli, Format::Png),
+        "lossy --no-zopfli PNG output must decode successfully"
     );
 }

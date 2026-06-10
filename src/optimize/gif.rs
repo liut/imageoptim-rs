@@ -8,6 +8,7 @@ impl Optimizer for GifOptimizer {
         bytes: &[u8],
         _quality: Option<u8>,
         _lossy: bool,
+        _no_zopfli: bool,
     ) -> anyhow::Result<Vec<u8>> {
         let mut options = gif::DecodeOptions::new();
         options.set_color_output(gif::ColorOutput::RGBA);

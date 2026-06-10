@@ -32,6 +32,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
     let no_backup = args.no_backup;
     let quality = args.quality;
     let lossy = args.lossy;
+    let no_zopfli = args.no_zopfli;
     let show_progress = !dry_run && std::io::IsTerminal::is_terminal(&std::io::stderr());
     let pb = if show_progress {
         let pb = indicatif::ProgressBar::new(files.len() as u64);
@@ -59,7 +60,8 @@ pub fn run(args: Args) -> Result<(), AppError> {
                     );
                 }
             };
-            let outcome = optimize_file(path, format, dry_run, no_backup, quality, lossy);
+            let outcome =
+                optimize_file(path, format, dry_run, no_backup, quality, lossy, no_zopfli);
             (path.clone(), format, outcome)
         });
         if let Some(pb) = pb.clone() {
@@ -116,6 +118,7 @@ fn optimize_file(
     no_backup: bool,
     quality: Option<u8>,
     lossy: bool,
+    no_zopfli: bool,
 ) -> Outcome {
     let original = match std::fs::read(path) {
         Ok(b) => b,
@@ -126,7 +129,7 @@ fn optimize_file(
     }
 
     let optimizer = crate::optimize::for_format(format);
-    let optimized = match optimizer.optimize(&original, quality, lossy) {
+    let optimized = match optimizer.optimize(&original, quality, lossy, no_zopfli) {
         Ok(b) => b,
         Err(e) => return Outcome::Failed(e.to_string()),
     };

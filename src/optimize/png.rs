@@ -4,9 +4,15 @@ use anyhow::Context;
 pub struct PngOptimizer;
 
 impl Optimizer for PngOptimizer {
-    fn optimize(&self, bytes: &[u8], _quality: Option<u8>, lossy: bool) -> anyhow::Result<Vec<u8>> {
+    fn optimize(
+        &self,
+        bytes: &[u8],
+        _quality: Option<u8>,
+        lossy: bool,
+        no_zopfli: bool,
+    ) -> anyhow::Result<Vec<u8>> {
         if lossy {
-            optimize_lossy(bytes)
+            optimize_lossy(bytes, no_zopfli)
         } else {
             optimize_lossless(bytes)
         }
@@ -18,7 +24,7 @@ fn optimize_lossless(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     oxipng::optimize_from_memory(bytes, &opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
 }
 
-fn optimize_lossy(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
+fn optimize_lossy(bytes: &[u8], no_zopfli: bool) -> anyhow::Result<Vec<u8>> {
     // 1. Decode input to RGBA8 pixels.
     let (pixels, width, height) = decode_rgba(bytes)?;
 
@@ -38,14 +44,26 @@ fn optimize_lossy(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     // 3. Encode as an 8-bit palette PNG.
     let palette_png = encode_palette(width, height, &palette, &indices)?;
 
-    // 4. Hand the palette PNG back through oxipng (preset 4, matching
-    //    ImageOptim's default AdvPngLevel=4). The palette is small but
-    //    the indexed pixel data still has zlib entropy that oxipng can
-    //    crush further with the right filter / window combo. This is
-    //    the step that takes us from ~32% to ~64% on photographic PNGs.
-    let opts = oxipng::Options::from_preset(4);
-    oxipng::optimize_from_memory(&palette_png, &opts)
-        .map_err(|e| anyhow::anyhow!("oxipng (post-pngquant): {e}"))
+    // 4. Hand the palette PNG back through oxipng at max compression.
+    //    The `zopfli` feature on oxipng is enabled in Cargo.toml, so
+    //    Options::max_compression() (= from_preset(6)) routes the deflate
+    //    stream through zopfli with --iterations=12. ImageOptim.app's
+    //    ZopfliWorker runs --iterations=15 by default; we cap at 12 to
+    //    keep wall-clock cost bounded.
+    let opts = oxipng::Options::max_compression();
+    let mut current = oxipng::optimize_from_memory(&palette_png, &opts)
+        .map_err(|e| anyhow::anyhow!("oxipng (post-pngquant): {e}"))?;
+
+    // 5. Optional: hand off to `zopflipng` CLI for the final pass.
+    //    zopflipng picks the best PNG filter combination and runs the
+    //    deepest deflate search, which oxipng's preset 6 does not.
+    //    Skipped silently if `--no-zopfli` is passed or the binary is
+    //    not on $PATH.
+    if !no_zopfli && let Some(zopfli_output) = run_zopflipng(&current) {
+        current = zopfli_output;
+    }
+
+    Ok(current)
 }
 
 fn decode_rgba(bytes: &[u8]) -> anyhow::Result<(Vec<imagequant::RGBA>, usize, usize)> {
@@ -155,4 +173,102 @@ fn encode_palette(
         writer.finish().context("png finish")?;
     }
     Ok(out)
+}
+
+/// Runs `zopflipng` as a subprocess on the bytes we already have, if it
+/// is on `$PATH`. Returns `None` if the binary cannot be found (the
+/// caller should fall through with the input unchanged, and prints a
+/// one-time hint to stderr so the user knows they can install it).
+///
+/// Mirrors ImageOptim.app's `ZopfliWorker.m` defaults:
+///   --filters=0pme, --iterations=15, --keepchunks=...
+///
+/// We pick `--filters=0pme` for moderate-size inputs (under 50 MB)
+/// and `--filters=p` for large inputs, matching ImageOptim's
+/// isLarge branch. We always strip ancillary chunks to match
+/// `PngOutRemoveChunks=true`.
+fn run_zopflipng(bytes: &[u8]) -> Option<Vec<u8>> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static MISSING_WARNED: AtomicBool = AtomicBool::new(false);
+    let zopflipng = match which("zopflipng") {
+        Some(p) => p,
+        None => {
+            if !MISSING_WARNED.swap(true, Ordering::Relaxed) {
+                eprintln!(
+                    "imageoptim: optional tool `zopflipng` not found in $PATH; \
+                     pass --no-zopfli to silence this hint, or install zopfli \
+                     (macOS: brew install zopfli; Debian/Ubuntu: apt install zopfli) \
+                     for the final ~10-20% savings on the --lossy PNG path."
+                );
+            }
+            return None;
+        }
+    };
+
+    let mut input = std::env::temp_dir();
+    input.push(format!("imageoptim-zopfli-{}.png", std::process::id()));
+    let mut output = input.clone();
+    output.set_extension("out.png");
+
+    // Use isLarge = (raw bytes > 50 MB). 50 MB matches ImageOptim's
+    // heuristic. For our target use this branch is rarely hit.
+    let is_large = bytes.len() > 50 * 1024 * 1024;
+    let filters = if is_large { "p" } else { "0pme" };
+    let iterations = 15;
+
+    if std::fs::write(&input, bytes).is_err() {
+        return None;
+    }
+
+    let result = std::process::Command::new(&zopflipng)
+        .arg(format!("--filters={filters}"))
+        .arg(format!("--iterations={iterations}"))
+        .arg("--lossy_transparent")
+        .arg("-y")
+        .arg(&input)
+        .arg(&output)
+        .output();
+
+    let _ = std::fs::remove_file(&input);
+    let _ = std::fs::remove_file(&output);
+
+    let result = match result {
+        Ok(r) if r.status.success() => r,
+        Ok(r) => {
+            eprintln!(
+                "imageoptim: zopflipng exited with status {}; skipping the post-pass",
+                r.status
+            );
+            return None;
+        }
+        Err(e) => {
+            eprintln!("imageoptim: failed to invoke zopflipng: {e}");
+            return None;
+        }
+    };
+    let _ = result;
+    std::fs::read(&output).ok()
+}
+
+/// Minimal `which(1)`: looks up `name` in `$PATH`. Returns the first
+/// match. Returns `None` if not found.
+fn which(name: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        // On Windows, executables carry an extension; check those too.
+        #[cfg(windows)]
+        {
+            for ext in &["exe", "bat", "cmd"] {
+                let with_ext = dir.join(format!("{name}.{ext}"));
+                if with_ext.is_file() {
+                    return Some(with_ext);
+                }
+            }
+        }
+    }
+    None
 }

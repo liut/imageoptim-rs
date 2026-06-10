@@ -3,7 +3,13 @@ use crate::optimize::Optimizer;
 pub struct WebpOptimizer;
 
 impl Optimizer for WebpOptimizer {
-    fn optimize(&self, bytes: &[u8], quality: Option<u8>, _lossy: bool) -> anyhow::Result<Vec<u8>> {
+    fn optimize(
+        &self,
+        bytes: &[u8],
+        quality: Option<u8>,
+        _lossy: bool,
+        _no_zopfli: bool,
+    ) -> anyhow::Result<Vec<u8>> {
         let decoder = webp::Decoder::new(bytes);
         let image = decoder
             .decode()

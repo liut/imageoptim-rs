@@ -13,8 +13,16 @@ pub mod webp;
 /// For PNG, `lossy=true` enables palette quantization via libimagequant
 /// (reduces the image to up to 256 colors); when `lossy=false` the PNG
 /// is recompressed losslessly with `oxipng`.
+/// `no_zopfli` suppresses the optional `zopflipng` CLI post-pass on
+/// the lossy PNG path; ignored for other formats.
 pub trait Optimizer: Send + Sync {
-    fn optimize(&self, bytes: &[u8], quality: Option<u8>, lossy: bool) -> anyhow::Result<Vec<u8>>;
+    fn optimize(
+        &self,
+        bytes: &[u8],
+        quality: Option<u8>,
+        lossy: bool,
+        no_zopfli: bool,
+    ) -> anyhow::Result<Vec<u8>>;
 }
 
 pub fn for_format(format: Format) -> Box<dyn Optimizer> {

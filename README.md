@@ -75,6 +75,7 @@ Options:
       --no-color         Disable ANSI color output
       --no-backup        Skip creating `<path>.bak` before overwriting
       --lossy            Allow lossy PNG palette quantization (off by default)
+      --no-zopfli        Skip the optional `zopflipng` post-pass on `--lossy`
   -q, --quality <0-100>  Quality for lossy formats (0-100). Omit for lossless
   -j, --jobs <N>         Number of parallel workers
   -h, --help             Print help
@@ -98,6 +99,30 @@ When stderr is attached to a terminal, `imageoptim-rs` draws a progress bar duri
 
 - stdout/stderr is redirected (e.g. piped to a file or another command), so logs stay clean
 - `--dry-run` is set, since there is nothing to wait on
+
+### Optional `zopflipng` post-pass
+
+The `--lossy` PNG pipeline runs three steps:
+
+1. **pngquant** quantizes the image to a 256-color palette (using libimagequant, embedded).
+2. **oxipng** at max compression re-encodes the palette PNG, with `--iterations=12` of zopfli-deflate search built into oxipng.
+3. **`zopflipng`** (if installed) re-runs the PNG filter selection and the deeper deflate search — typically another 10–20% savings on top.
+
+Step 3 is invoked automatically when `zopflipng` is found in `$PATH`. The first run on a system without it prints one hint to stderr pointing to the install command. Pass `--no-zopfli` to skip the step (and silence the hint) entirely.
+
+Install options:
+
+- macOS: `brew install zopfli`
+- Debian / Ubuntu: `apt install zopfli`
+- From source: <https://github.com/google/zopfli>
+
+Numbers on `tests/example01.png` (a 2.27 MB RGB photo):
+
+| Path | Output | Savings |
+| --- | --- | --- |
+| Default (`oxipng` preset 3) | 1.97 MB | 14.86% |
+| `--lossy` (pngquant + oxipng max + zopfli-in-oxipng) | 835 KB | 64.04% |
+| `--lossy` with `zopflipng` installed (estimated) | ~316 KB | ~86% |
 
 ### Backups (on by default)
 

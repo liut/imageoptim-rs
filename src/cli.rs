@@ -31,6 +31,14 @@ pub struct Args {
     #[arg(long)]
     pub lossy: bool,
 
+    /// Disable the optional `zopflipng` post-pass in the lossy PNG
+    /// pipeline. On by default — the lossy pipeline auto-detects
+    /// `zopflipng` in `$PATH` and runs it for additional compression if
+    /// found. Pass `--no-zopfli` to skip that step (e.g. on systems
+    /// where `zopflipng` is not installed). Ignored if `--lossy` is not set.
+    #[arg(long)]
+    pub no_zopfli: bool,
+
     /// Quality for lossy formats (0-100). Omit for lossless.
     #[arg(short, long, value_name = "0-100")]
     pub quality: Option<u8>,
