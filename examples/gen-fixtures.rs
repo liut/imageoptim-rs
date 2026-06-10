@@ -31,7 +31,7 @@ fn main() {
     let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
     let mut next = || {
         state = state
-            .wrapping_mul(6364_136_223_846_793_005)
+            .wrapping_mul(6_364_136_223_846_793_005)
             .wrapping_add(1_442_695_040_888_963_407);
         state
     };

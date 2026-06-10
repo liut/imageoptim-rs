@@ -134,6 +134,31 @@ mv foo.png.bak foo.png
 
 Backups are skipped in `--dry-run` mode and can be disabled entirely with `--no-backup` (the file is still optimized in place, just without the `.bak` copy). They live next to the originals, so the file count roughly doubles during the first optimization pass — remember to clean them up once you're satisfied.
 
+## Development
+
+### Test fixtures
+
+The integration tests read a single 2-3 MB photo fixture at
+`tests/example01.png`. To keep the repository lean, this file is
+git-ignored and generated on demand by a small example program:
+
+```sh
+cargo run --example gen-fixtures
+```
+
+This writes a 1122×1402 RGB PNG that is shaped like a natural photo
+(smooth color regions with low-amplitude noise) so the lossy palette
+quantizer has real work to do. The output is deterministic — a seeded
+LCG — so the bytes match across runs and platforms.
+
+Without this step, fixture-dependent tests skip silently (they
+print `skipping: tests/example01.png not present` and return 0). All
+other tests run as normal. To run the full suite end-to-end:
+
+```sh
+cargo run --example gen-fixtures && cargo test
+```
+
 ## Comparison to ImageOptim-CLI
 
 | | ImageOptim-CLI | imageoptim-rs |
