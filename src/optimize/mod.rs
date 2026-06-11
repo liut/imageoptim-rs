@@ -18,6 +18,10 @@ pub mod webp;
 /// `max_colors` caps the palette size used by the lossy PNG path
 /// (clamped to imagequant's `2..=256` range at the CLI). Ignored by
 /// other formats.
+/// `png_level` overrides the oxipng preset (0..=6) used for the PNG
+/// inner step. Higher is slower + smaller. Ignored for non-PNG
+/// formats. The `None` default preserves the per-mode defaults
+/// baked into the PNG optimizer (3 for lossless, 6 for lossy).
 pub trait Optimizer: Send + Sync {
     fn optimize(
         &self,
@@ -26,6 +30,7 @@ pub trait Optimizer: Send + Sync {
         lossy: bool,
         no_zopfli: bool,
         max_colors: Option<u32>,
+        png_level: Option<u8>,
     ) -> anyhow::Result<Vec<u8>>;
 }
 

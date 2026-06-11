@@ -59,6 +59,14 @@ pub struct Args {
     #[arg(short, long, value_name = "0-100")]
     pub quality: Option<u8>,
 
+    /// oxipng preset to use for the PNG inner step (range 0..=6).
+    /// Lower numbers are faster but produce larger output; higher
+    /// numbers are slower but compress more. Defaults to 3 for
+    /// lossless PNG and to 6 for `--lossy` PNG — pass this flag to
+    /// override either mode. Ignored for non-PNG inputs.
+    #[arg(long, value_name = "0-6", value_parser = clap::value_parser!(u8).range(0..=6))]
+    pub png_optimization_level: Option<u8>,
+
     /// Number of parallel workers.
     #[arg(short, long, value_name = "N")]
     pub jobs: Option<usize>,

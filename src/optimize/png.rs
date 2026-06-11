@@ -11,17 +11,21 @@ impl Optimizer for PngOptimizer {
         lossy: bool,
         no_zopfli: bool,
         max_colors: Option<u32>,
+        png_level: Option<u8>,
     ) -> anyhow::Result<Vec<u8>> {
         if lossy {
-            optimize_lossy(bytes, no_zopfli, max_colors)
+            optimize_lossy(bytes, no_zopfli, max_colors, png_level)
         } else {
-            optimize_lossless(bytes)
+            optimize_lossless(bytes, png_level)
         }
     }
 }
 
-fn optimize_lossless(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
-    let opts = oxipng::Options::from_preset(3);
+fn optimize_lossless(bytes: &[u8], png_level: Option<u8>) -> anyhow::Result<Vec<u8>> {
+    // Per-mode default: lossless PNG runs at preset 3 (balanced
+    // speed/size). Users can override with `--png-optimization-level`.
+    let level = png_level.unwrap_or(3);
+    let opts = oxipng::Options::from_preset(level);
     oxipng::optimize_from_memory(bytes, &opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
 }
 
@@ -29,6 +33,7 @@ fn optimize_lossy(
     bytes: &[u8],
     no_zopfli: bool,
     max_colors: Option<u32>,
+    png_level: Option<u8>,
 ) -> anyhow::Result<Vec<u8>> {
     // 1. Decode input to RGBA8 pixels.
     let (pixels, width, height) = decode_rgba(bytes)?;
@@ -59,8 +64,11 @@ fn optimize_lossy(
     //    Options::max_compression() (= from_preset(6)) routes the deflate
     //    stream through zopfli with --iterations=12. ImageOptim.app's
     //    ZopfliWorker runs --iterations=15 by default; we cap at 12 to
-    //    keep wall-clock cost bounded.
-    let opts = oxipng::Options::max_compression();
+    //    keep wall-clock cost bounded. The user can override the
+    //    preset with `--png-optimization-level`; per-mode default for
+    //    the lossy inner step is 6 (max compression).
+    let level = png_level.unwrap_or(6);
+    let opts = oxipng::Options::from_preset(level);
     let mut current = oxipng::optimize_from_memory(&palette_png, &opts)
         .map_err(|e| anyhow::anyhow!("oxipng (post-pngquant): {e}"))?;
 

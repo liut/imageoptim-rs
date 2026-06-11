@@ -15,7 +15,7 @@ fn png_optimizer_no_zopfli_flag_honored() {
     let bytes = std::fs::read(&fixture).unwrap();
     let optimizer = PngOptimizer;
     let out = optimizer
-        .optimize(&bytes, None, true, true, None)
+        .optimize(&bytes, None, true, true, None, None)
         .expect("lossy + no_zopfli");
     assert!(out.len() < bytes.len(), "must shrink the input");
     assert!(
