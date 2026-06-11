@@ -25,7 +25,11 @@ fn optimize_lossless(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     oxipng::optimize_from_memory(bytes, &opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
 }
 
-fn optimize_lossy(bytes: &[u8], no_zopfli: bool, max_colors: Option<u32>) -> anyhow::Result<Vec<u8>> {
+fn optimize_lossy(
+    bytes: &[u8],
+    no_zopfli: bool,
+    max_colors: Option<u32>,
+) -> anyhow::Result<Vec<u8>> {
     // 1. Decode input to RGBA8 pixels.
     let (pixels, width, height) = decode_rgba(bytes)?;
 
@@ -35,7 +39,8 @@ fn optimize_lossy(bytes: &[u8], no_zopfli: bool, max_colors: Option<u32>) -> any
     //    range 80-100, level=4 → speed = MIN(3, 7-4) = 3.
     let mut attr = imagequant::Attributes::new();
     if let Some(n) = max_colors {
-        attr.set_max_colors(n).context("imagequant: set_max_colors")?;
+        attr.set_max_colors(n)
+            .context("imagequant: set_max_colors")?;
     }
     attr.set_quality(80, 100)
         .context("imagequant: set_quality")?;

@@ -51,7 +51,7 @@ imageoptim '**/*.{png,jpg,gif,webp,svg}' -j 4
 
 | Format | Optimizer | Notes |
 | --- | --- | --- |
-| PNG | `oxipng` (lossless) or `imagequant` (lossy with `--lossy`) | Lossless by default; `--lossy` quantizes to up to 256 colors |
+| PNG | `oxipng` (lossless) or `imagequant` (lossy with `--lossy`) | Lossless by default; `--lossy` quantizes to up to 256 colors, tunable via `--max-colors` |
 | JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding, default quality 85 |
 | GIF | `gif` crate | Indexed re-encoding with NeuQuant (quality flag ignored) |
 | WebP | `webp` + `image` | Lossy re-encoding when `--quality` is set, lossless otherwise |
@@ -59,7 +59,7 @@ imageoptim '**/*.{png,jpg,gif,webp,svg}' -j 4
 
 `--quality <0-100>` controls the lossy quality for JPEG and WebP. It is silently ignored for GIF and SVG, which are always lossless.
 
-`--lossy` enables palette quantization for PNG. This is the same algorithm that powers [pngquant](https://pngquant.org/) and the "Lossy" checkbox in ImageOptim.app: each pixel's color is mapped to the nearest entry in a palette of up to 256 colors, which can shrink photographic PNGs by 50–80% at the cost of subtle color banding. The output remains a valid PNG, but it is no longer byte-identical to the original — keep the `.bak` (or pass `--dry-run`) when you first try it on real assets.
+`--lossy` enables palette quantization for PNG. This is the same algorithm that powers [pngquant](https://pngquant.org/) and the "Lossy" checkbox in ImageOptim.app: each pixel's color is mapped to the nearest entry in a palette of up to 256 colors, which can shrink photographic PNGs by 50–80% at the cost of subtle color banding. The output remains a valid PNG, but it is no longer byte-identical to the original — keep the `.bak` (or pass `--dry-run`) when you first try it on real assets. Use `--max-colors <N>` (2..=256, requires `--lossy`) to cap the palette size; smaller values mean more banding but a smaller file.
 
 ## Flags
 
@@ -75,6 +75,7 @@ Options:
       --no-color         Disable ANSI color output
       --no-backup        Skip creating `<path>.bak` before overwriting
       --lossy            Allow lossy PNG palette quantization (off by default)
+      --max-colors <N>   Cap the lossy palette at N colors (2-256, requires --lossy)
       --no-zopfli        Skip the optional `zopflipng` post-pass on `--lossy`
       --output-dir <DIR> Write optimized files into `<DIR>/<stem>_s<ext>` instead of overwriting
       --fail-fast        Stop processing on the first per-file error
@@ -124,6 +125,7 @@ Numbers on `tests/example01.png` (a 2.27 MB RGB photo):
 | --- | --- | --- |
 | Default (`oxipng` preset 3) | 1.97 MB | 14.86% |
 | `--lossy` (pngquant + oxipng max + zopfli-in-oxipng) | 835 KB | 64.04% |
+| `--lossy --max-colors 16` | 286 KB | 87.67% |
 | `--lossy` with `zopflipng` installed (estimated) | ~316 KB | ~86% |
 
 ### Backups (on by default)
