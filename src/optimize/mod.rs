@@ -15,6 +15,9 @@ pub mod webp;
 /// is recompressed losslessly with `oxipng`.
 /// `no_zopfli` suppresses the optional `zopflipng` CLI post-pass on
 /// the lossy PNG path; ignored for other formats.
+/// `max_colors` caps the palette size used by the lossy PNG path
+/// (clamped to imagequant's `2..=256` range at the CLI). Ignored by
+/// other formats.
 pub trait Optimizer: Send + Sync {
     fn optimize(
         &self,
@@ -22,6 +25,7 @@ pub trait Optimizer: Send + Sync {
         quality: Option<u8>,
         lossy: bool,
         no_zopfli: bool,
+        max_colors: Option<u32>,
     ) -> anyhow::Result<Vec<u8>>;
 }
 

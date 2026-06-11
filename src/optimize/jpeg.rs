@@ -11,6 +11,7 @@ impl Optimizer for JpegOptimizer {
         quality: Option<u8>,
         _lossy: bool,
         _no_zopfli: bool,
+        _max_colors: Option<u32>,
     ) -> anyhow::Result<Vec<u8>> {
         let q = quality.unwrap_or(DEFAULT_QUALITY);
         let mut decoder = jpeg_decoder::Decoder::new(bytes);

@@ -47,6 +47,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
     let quality = args.quality;
     let lossy = args.lossy;
     let no_zopfli = args.no_zopfli;
+    let max_colors = args.max_colors;
     let fail_fast = args.fail_fast;
     let output_dir = args.output_dir.clone();
     let show_progress = !dry_run && std::io::IsTerminal::is_terminal(&std::io::stderr());
@@ -84,6 +85,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
                 quality,
                 lossy,
                 no_zopfli,
+                max_colors,
                 output_dir.as_deref(),
             );
             (path.clone(), format, outcome)
@@ -151,6 +153,7 @@ fn optimize_file(
     quality: Option<u8>,
     lossy: bool,
     no_zopfli: bool,
+    max_colors: Option<u32>,
     output_dir: Option<&Path>,
 ) -> Outcome {
     let original = match std::fs::read(path) {
@@ -162,10 +165,11 @@ fn optimize_file(
     }
 
     let optimizer = crate::optimize::for_format(format);
-    let optimized = match optimizer.optimize(&original, quality, lossy, no_zopfli) {
-        Ok(b) => b,
-        Err(e) => return Outcome::Failed(e.to_string()),
-    };
+    let optimized =
+        match optimizer.optimize(&original, quality, lossy, no_zopfli, max_colors) {
+            Ok(b) => b,
+            Err(e) => return Outcome::Failed(e.to_string()),
+        };
 
     if !safety::is_safe_to_write(&original, &optimized, format) {
         return Outcome::Skipped;

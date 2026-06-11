@@ -10,9 +10,10 @@ impl Optimizer for PngOptimizer {
         _quality: Option<u8>,
         lossy: bool,
         no_zopfli: bool,
+        max_colors: Option<u32>,
     ) -> anyhow::Result<Vec<u8>> {
         if lossy {
-            optimize_lossy(bytes, no_zopfli)
+            optimize_lossy(bytes, no_zopfli, max_colors)
         } else {
             optimize_lossless(bytes)
         }
@@ -24,7 +25,7 @@ fn optimize_lossless(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     oxipng::optimize_from_memory(bytes, &opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
 }
 
-fn optimize_lossy(bytes: &[u8], no_zopfli: bool) -> anyhow::Result<Vec<u8>> {
+fn optimize_lossy(bytes: &[u8], no_zopfli: bool, _max_colors: Option<u32>) -> anyhow::Result<Vec<u8>> {
     // 1. Decode input to RGBA8 pixels.
     let (pixels, width, height) = decode_rgba(bytes)?;
 

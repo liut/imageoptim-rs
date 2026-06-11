@@ -9,6 +9,7 @@ impl Optimizer for WebpOptimizer {
         quality: Option<u8>,
         _lossy: bool,
         _no_zopfli: bool,
+        _max_colors: Option<u32>,
     ) -> anyhow::Result<Vec<u8>> {
         let decoder = webp::Decoder::new(bytes);
         let image = decoder

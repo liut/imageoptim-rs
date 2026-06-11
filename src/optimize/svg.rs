@@ -9,6 +9,7 @@ impl Optimizer for SvgOptimizer {
         _quality: Option<u8>,
         _lossy: bool,
         _no_zopfli: bool,
+        _max_colors: Option<u32>,
     ) -> anyhow::Result<Vec<u8>> {
         let tree = usvg::Tree::from_data(bytes, &usvg::Options::default())?;
         let xml = tree.to_string(&usvg::WriteOptions::default());
