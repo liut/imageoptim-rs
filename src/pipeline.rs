@@ -168,17 +168,11 @@ fn optimize_file(
     }
 
     let optimizer = crate::optimize::for_format(format);
-    let optimized = match optimizer.optimize(
-        &original,
-        quality,
-        lossy,
-        no_zopfli,
-        max_colors,
-        png_level,
-    ) {
-        Ok(b) => b,
-        Err(e) => return Outcome::Failed(e.to_string()),
-    };
+    let optimized =
+        match optimizer.optimize(&original, quality, lossy, no_zopfli, max_colors, png_level) {
+            Ok(b) => b,
+            Err(e) => return Outcome::Failed(e.to_string()),
+        };
 
     if !safety::is_safe_to_write(&original, &optimized, format) {
         return Outcome::Skipped;
