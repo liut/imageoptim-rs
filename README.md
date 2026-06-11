@@ -51,7 +51,7 @@ imageoptim '**/*.{png,jpg,gif,webp,svg}' -j 4
 
 | Format | Optimizer | Notes |
 | --- | --- | --- |
-| PNG | `oxipng` (lossless) or `imagequant` (lossy with `--lossy`) | Lossless by default; `--lossy` quantizes to up to 256 colors, tunable via `--max-colors` |
+| PNG | `oxipng` (lossless) or `imagequant` (lossy with `--lossy`) | Lossless by default; `--lossy` quantizes to up to 256 colors, tunable via `--max-colors`; oxipng preset is tunable via `--png-optimization-level` |
 | JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding, default quality 85 |
 | GIF | `gif` crate | Indexed re-encoding with NeuQuant (quality flag ignored) |
 | WebP | `webp` + `image` | Lossy re-encoding when `--quality` is set, lossless otherwise |
@@ -77,6 +77,7 @@ Options:
       --lossy            Allow lossy PNG palette quantization (off by default)
       --max-colors <N>   Cap the lossy palette at N colors (2-256, requires --lossy)
       --no-zopfli        Skip the optional `zopflipng` post-pass on `--lossy`
+      --png-optimization-level <0-6>  Override the oxipng preset (default 3 lossless, 6 lossy)
       --output-dir <DIR> Write optimized files into `<DIR>/<stem>_s<ext>` instead of overwriting
       --fail-fast        Stop processing on the first per-file error
   -q, --quality <0-100>  Quality for lossy formats (0-100). Omit for lossless
@@ -123,6 +124,7 @@ Numbers on `tests/example01.png` (a 2.27 MB RGB photo):
 
 | Path | Output | Savings |
 | --- | --- | --- |
+| `--png-optimization-level 0` (fastest) | 2.07 MB | 8.69% |
 | Default (`oxipng` preset 3) | 1.97 MB | 14.86% |
 | `--lossy` (pngquant + oxipng max + zopfli-in-oxipng) | 835 KB | 64.04% |
 | `--lossy --max-colors 16` | 286 KB | 87.67% |
