@@ -25,11 +25,18 @@ pub struct Args {
     #[arg(long)]
     pub no_backup: bool,
 
-    /// Allow lossy optimization for PNG (palette quantization to 256
-    /// colors). Off by default. The output is still required to be
-    /// smaller than the input and to decode as a valid PNG.
+    /// Allow lossy optimization for PNG (palette quantization). Off by
+    /// default. Up to 256 colors by default; pass `--max-colors` to cap
+    /// the palette at a smaller size. The output is still required to
+    /// be smaller than the input and to decode as a valid PNG.
     #[arg(long)]
     pub lossy: bool,
+
+    /// Cap the palette size used by `--lossy` PNG at `<N>` colors
+    /// (range 2..=256). Requires `--lossy`; ignored on non-PNG inputs.
+    /// Default is 256, which is imagequant's built-in maximum.
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(2..=256))]
+    pub max_colors: Option<u32>,
 
     /// Disable the optional `zopflipng` post-pass in the lossy PNG
     /// pipeline. On by default — the lossy pipeline auto-detects

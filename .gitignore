@@ -30,6 +30,7 @@ tests/fixtures/
 # `cargo run --example gen-fixtures`. Not committed to keep the repo
 # lean; the regression suite skips cleanly if the file is missing.
 tests/example*.png
+*.bak
 
 
 # Added by cargo
