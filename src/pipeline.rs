@@ -14,6 +14,13 @@ pub fn run(args: Args) -> Result<(), AppError> {
         return Err(AppError::NoInput);
     }
 
+    // --max-colors only applies to the --lossy PNG path. Reject
+    // mismatches up front so a confused invocation produces a single
+    // clear error instead of a per-file failure cascade.
+    if args.max_colors.is_some() && !args.lossy {
+        return Err(AppError::MaxColorsRequiresLossy);
+    }
+
     let files = collect_files(&args.patterns, args.recursive)?;
     if files.is_empty() {
         return Err(AppError::NoMatches);

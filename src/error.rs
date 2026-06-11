@@ -21,6 +21,9 @@ pub enum AppError {
     #[error("glob expansion failed: {0}")]
     GlobExpansion(#[from] glob::GlobError),
 
+    #[error("--max-colors requires --lossy")]
+    MaxColorsRequiresLossy,
+
     #[error("one or more files failed to optimize")]
     AnyFileFailed,
 }
