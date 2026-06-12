@@ -35,10 +35,17 @@ pub enum Outcome {
 
 pub struct Reporter {
     pub dry_run: bool,
+    pub summary_only: bool,
 }
 
 impl Reporter {
     pub fn print_file(&self, path: &Path, format: Format, outcome: &Outcome) {
+        // Errors always print to stderr regardless of summary_only.
+        // Optimized/skipped lines are suppressed when --summary-only
+        // is set, so CI logs stay clean.
+        if self.summary_only && !matches!(outcome, Outcome::Failed(_)) {
+            return;
+        }
         let label = format!("[{}]", format.name());
         match outcome {
             Outcome::Optimized(s) => {

@@ -24,6 +24,10 @@ pub mod webp;
 ///   non-PNG formats. The `None` default preserves the per-mode
 ///   defaults baked into the PNG optimizer (3 for lossless, 6 for
 ///   the lossy inner step).
+/// - `verbose`: when true, optimizers may emit per-step progress
+///   information to stderr (which oxipng preset was used, whether
+///   the optional `zopflipng` CLI ran, etc.). Has no effect on the
+///   output bytes; only on the diagnostic stream.
 ///
 /// The struct replaces what used to be five positional args on
 /// `Optimizer::optimize`. New flags add fields here instead of
@@ -35,6 +39,7 @@ pub struct OptimizerOptions {
     pub no_zopfli: bool,
     pub max_colors: Option<u32>,
     pub png_level: Option<u8>,
+    pub verbose: bool,
 }
 
 /// Trait for format-specific optimizers.

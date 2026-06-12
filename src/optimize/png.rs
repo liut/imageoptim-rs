@@ -17,6 +17,9 @@ fn optimize_lossless(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Ve
     // Per-mode default: lossless PNG runs at preset 3 (balanced
     // speed/size). Users can override with `--png-optimization-level`.
     let level = opts.png_level.unwrap_or(3);
+    if opts.verbose {
+        eprintln!("imageoptim: png lossless → oxipng preset {level}");
+    }
     let oxipng_opts = oxipng::Options::from_preset(level);
     oxipng::optimize_from_memory(bytes, &oxipng_opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
 }
@@ -24,6 +27,12 @@ fn optimize_lossless(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Ve
 fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>> {
     // 1. Decode input to RGBA8 pixels.
     let (pixels, width, height) = decode_rgba(bytes)?;
+    if opts.verbose {
+        eprintln!(
+            "imageoptim: png lossy → decoded {width}x{height} RGBA8 ({} pixels)",
+            pixels.len()
+        );
+    }
 
     // 2. Quantize to a palette of up to `max_colors` colors (default
     //    imagequant cap of 256 when None).
@@ -37,11 +46,21 @@ fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u
     attr.set_quality(80, 100)
         .context("imagequant: set_quality")?;
     attr.set_speed(3).context("imagequant: set_speed")?;
+    if opts.verbose {
+        let cap = opts.max_colors.unwrap_or(256);
+        eprintln!("imageoptim:   imagequant q=80-100 max_colors={cap} speed=3");
+    }
     let mut img = attr
         .new_image_borrowed(&pixels, width, height, 0.0)
         .context("imagequant: new_image")?;
     let mut res = attr.quantize(&mut img).context("imagequant: quantize")?;
     let (palette, indices) = res.remapped(&mut img).context("imagequant: remapped")?;
+    if opts.verbose {
+        eprintln!(
+            "imageoptim:   imagequant produced {} entries in the palette",
+            palette.len()
+        );
+    }
 
     // 3. Encode as an 8-bit palette PNG.
     let palette_png = encode_palette(width, height, &palette, &indices)?;
@@ -55,6 +74,9 @@ fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u
     //    preset with `--png-optimization-level`; per-mode default for
     //    the lossy inner step is 6 (max compression).
     let level = opts.png_level.unwrap_or(6);
+    if opts.verbose {
+        eprintln!("imageoptim:   oxipng preset {level} (zopfli iterations=12)");
+    }
     let oxipng_opts = oxipng::Options::from_preset(level);
     let mut current = oxipng::optimize_from_memory(&palette_png, &oxipng_opts)
         .map_err(|e| anyhow::anyhow!("oxipng (post-pngquant): {e}"))?;
@@ -64,13 +86,56 @@ fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u
     //    deepest deflate search, which oxipng's preset 6 does not.
     //    Skipped silently if `--no-zopfli` is passed or the binary is
     //    not on $PATH.
-    if !opts.no_zopfli
-        && let Some(zopfli_output) = run_zopflipng(&current)
-    {
-        current = zopfli_output;
+    if !opts.no_zopfli {
+        match run_zopflipng(&current) {
+            Some(zopfli_output) => {
+                if opts.verbose {
+                    let saved = current.len() as i64 - zopfli_output.len() as i64;
+                    eprintln!("imageoptim:   zopflipng ran, saved {}", bytes_human(saved));
+                }
+                current = zopfli_output;
+            }
+            None => {
+                if opts.verbose {
+                    if run_zopflipng_installed() {
+                        eprintln!("imageoptim:   zopflipng installed but failed; skipped");
+                    } else {
+                        eprintln!("imageoptim:   zopflipng not installed; skipped");
+                    }
+                }
+            }
+        }
     }
 
     Ok(current)
+}
+
+/// Human-readable byte count for the verbose trace. Mirrors the
+/// reporter's `bytes_human` but inlined to avoid a circular dep
+/// (this module is already used by the reporter indirectly via
+/// the optimizer trait).
+fn bytes_human(n: i64) -> String {
+    let n = n.unsigned_abs();
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
+    let mut value = n as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{n} B")
+    } else {
+        format!("{value:.2} {}", UNITS[unit])
+    }
+}
+
+/// Re-runs the `which("zopflipng")` check that `run_zopflipng` does
+/// internally, but exposed for the verbose trace so we can
+/// distinguish "zopflipng not installed" from "zopflipng failed"
+/// in the user's stderr stream.
+fn run_zopflipng_installed() -> bool {
+    which("zopflipng").is_some()
 }
 
 fn decode_rgba(bytes: &[u8]) -> anyhow::Result<(Vec<imagequant::RGBA>, usize, usize)> {

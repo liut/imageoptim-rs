@@ -79,6 +79,20 @@ pub struct Args {
     /// build.
     #[arg(long)]
     pub fail_fast: bool,
+
+    /// Print per-step optimization details to stderr (e.g. which
+    /// oxipng preset was used, whether the optional `zopflipng` CLI
+    /// was invoked, and the imagequant palette constraint). Useful
+    /// for debugging why a file produced the size it did. The
+    /// per-file result line and the summary are unchanged.
+    #[arg(short, long)]
+    pub verbose: bool,
+
+    /// Suppress per-file result lines; print only the final summary.
+    /// Useful in CI logs where per-file noise is not interesting.
+    /// Errors are still reported on stderr.
+    #[arg(long)]
+    pub summary_only: bool,
 }
 
 impl Args {

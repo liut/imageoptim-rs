@@ -34,6 +34,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
 
     let reporter = Reporter {
         dry_run: args.dry_run,
+        summary_only: args.summary_only,
     };
 
     let pool = rayon::ThreadPoolBuilder::new()
@@ -50,6 +51,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
     let max_colors = args.max_colors;
     let png_level = args.png_optimization_level;
     let fail_fast = args.fail_fast;
+    let verbose = args.verbose;
     let output_dir = args.output_dir.clone();
     let show_progress = !dry_run && std::io::IsTerminal::is_terminal(&std::io::stderr());
     let pb = if show_progress {
@@ -88,6 +90,7 @@ pub fn run(args: Args) -> Result<(), AppError> {
                 no_zopfli,
                 max_colors,
                 png_level,
+                verbose,
                 output_dir.as_deref(),
             );
             (path.clone(), format, outcome)
@@ -157,6 +160,7 @@ fn optimize_file(
     no_zopfli: bool,
     max_colors: Option<u32>,
     png_level: Option<u8>,
+    verbose: bool,
     output_dir: Option<&Path>,
 ) -> Outcome {
     let original = match std::fs::read(path) {
@@ -174,6 +178,7 @@ fn optimize_file(
         no_zopfli,
         max_colors,
         png_level,
+        verbose,
     };
     let optimized = match optimizer.optimize(&original, &opts) {
         Ok(b) => b,
