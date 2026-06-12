@@ -1,17 +1,9 @@
-use crate::optimize::Optimizer;
+use crate::optimize::{Optimizer, OptimizerOptions};
 
 pub struct GifOptimizer;
 
 impl Optimizer for GifOptimizer {
-    fn optimize(
-        &self,
-        bytes: &[u8],
-        _quality: Option<u8>,
-        _lossy: bool,
-        _no_zopfli: bool,
-        _max_colors: Option<u32>,
-        _png_level: Option<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
+    fn optimize(&self, bytes: &[u8], _opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>> {
         let mut options = gif::DecodeOptions::new();
         options.set_color_output(gif::ColorOutput::RGBA);
         let mut decoder = options.read_info(bytes)?;

@@ -1,4 +1,5 @@
 use imageoptim::optimize::Optimizer;
+use imageoptim::optimize::OptimizerOptions;
 use imageoptim::optimize::png::PngOptimizer;
 
 #[test]
@@ -14,8 +15,13 @@ fn png_optimizer_no_zopfli_flag_honored() {
     }
     let bytes = std::fs::read(&fixture).unwrap();
     let optimizer = PngOptimizer;
+    let opts = OptimizerOptions {
+        lossy: true,
+        no_zopfli: true,
+        ..Default::default()
+    };
     let out = optimizer
-        .optimize(&bytes, None, true, true, None, None)
+        .optimize(&bytes, &opts)
         .expect("lossy + no_zopfli");
     assert!(out.len() < bytes.len(), "must shrink the input");
     assert!(

@@ -1,5 +1,6 @@
 use imageoptim::detect::Format;
 use imageoptim::optimize::Optimizer;
+use imageoptim::optimize::OptimizerOptions;
 use imageoptim::optimize::png::PngOptimizer;
 use imageoptim::safety;
 
@@ -38,8 +39,9 @@ fn safety_rejects_equal_size() {
 fn png_optimizer_produces_valid_output() {
     let optimizer = PngOptimizer;
     let png_bytes = make_png();
+    let opts = OptimizerOptions::default();
     let optimized = optimizer
-        .optimize(&png_bytes, None, false, false, None, None)
+        .optimize(&png_bytes, &opts)
         .expect("optimize should succeed");
     assert!(
         optimized.len() < png_bytes.len(),
@@ -55,12 +57,9 @@ fn png_optimizer_produces_valid_output() {
 fn png_optimizer_keeps_already_optimal() {
     let optimizer = PngOptimizer;
     let png_bytes = make_png();
-    let optimized = optimizer
-        .optimize(&png_bytes, None, false, false, None, None)
-        .expect("first pass");
-    let optimized2 = optimizer
-        .optimize(&optimized, None, false, false, None, None)
-        .expect("second pass");
+    let opts = OptimizerOptions::default();
+    let optimized = optimizer.optimize(&png_bytes, &opts).expect("first pass");
+    let optimized2 = optimizer.optimize(&optimized, &opts).expect("second pass");
     // After first optimization, the file should be at a local minimum.
     assert!(optimized2.len() <= optimized.len());
 }

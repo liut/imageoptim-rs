@@ -1,40 +1,27 @@
-use crate::optimize::Optimizer;
+use crate::optimize::{Optimizer, OptimizerOptions};
 use anyhow::Context;
 
 pub struct PngOptimizer;
 
 impl Optimizer for PngOptimizer {
-    fn optimize(
-        &self,
-        bytes: &[u8],
-        _quality: Option<u8>,
-        lossy: bool,
-        no_zopfli: bool,
-        max_colors: Option<u32>,
-        png_level: Option<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        if lossy {
-            optimize_lossy(bytes, no_zopfli, max_colors, png_level)
+    fn optimize(&self, bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>> {
+        if opts.lossy {
+            optimize_lossy(bytes, opts)
         } else {
-            optimize_lossless(bytes, png_level)
+            optimize_lossless(bytes, opts)
         }
     }
 }
 
-fn optimize_lossless(bytes: &[u8], png_level: Option<u8>) -> anyhow::Result<Vec<u8>> {
+fn optimize_lossless(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>> {
     // Per-mode default: lossless PNG runs at preset 3 (balanced
     // speed/size). Users can override with `--png-optimization-level`.
-    let level = png_level.unwrap_or(3);
-    let opts = oxipng::Options::from_preset(level);
-    oxipng::optimize_from_memory(bytes, &opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
+    let level = opts.png_level.unwrap_or(3);
+    let oxipng_opts = oxipng::Options::from_preset(level);
+    oxipng::optimize_from_memory(bytes, &oxipng_opts).map_err(|e| anyhow::anyhow!("oxipng: {e}"))
 }
 
-fn optimize_lossy(
-    bytes: &[u8],
-    no_zopfli: bool,
-    max_colors: Option<u32>,
-    png_level: Option<u8>,
-) -> anyhow::Result<Vec<u8>> {
+fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>> {
     // 1. Decode input to RGBA8 pixels.
     let (pixels, width, height) = decode_rgba(bytes)?;
 
@@ -43,7 +30,7 @@ fn optimize_lossy(
     //    Mirrors ImageOptim.app's defaults: PngMinQuality=80 → quality
     //    range 80-100, level=4 → speed = MIN(3, 7-4) = 3.
     let mut attr = imagequant::Attributes::new();
-    if let Some(n) = max_colors {
+    if let Some(n) = opts.max_colors {
         attr.set_max_colors(n)
             .context("imagequant: set_max_colors")?;
     }
@@ -67,9 +54,9 @@ fn optimize_lossy(
     //    keep wall-clock cost bounded. The user can override the
     //    preset with `--png-optimization-level`; per-mode default for
     //    the lossy inner step is 6 (max compression).
-    let level = png_level.unwrap_or(6);
-    let opts = oxipng::Options::from_preset(level);
-    let mut current = oxipng::optimize_from_memory(&palette_png, &opts)
+    let level = opts.png_level.unwrap_or(6);
+    let oxipng_opts = oxipng::Options::from_preset(level);
+    let mut current = oxipng::optimize_from_memory(&palette_png, &oxipng_opts)
         .map_err(|e| anyhow::anyhow!("oxipng (post-pngquant): {e}"))?;
 
     // 5. Optional: hand off to `zopflipng` CLI for the final pass.
@@ -77,7 +64,9 @@ fn optimize_lossy(
     //    deepest deflate search, which oxipng's preset 6 does not.
     //    Skipped silently if `--no-zopfli` is passed or the binary is
     //    not on $PATH.
-    if !no_zopfli && let Some(zopfli_output) = run_zopflipng(&current) {
+    if !opts.no_zopfli
+        && let Some(zopfli_output) = run_zopflipng(&current)
+    {
         current = zopfli_output;
     }
 

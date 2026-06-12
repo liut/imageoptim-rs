@@ -6,32 +6,40 @@ pub mod png;
 pub mod svg;
 pub mod webp;
 
-/// Trait for format-specific optimizers.
+/// Per-call options consumed by [`Optimizer::optimize`].
 ///
-/// `quality` is a 0-100 lossy quality hint. It is honored by lossy
-/// formats (JPEG, WebP) and ignored by lossless formats (GIF, SVG).
-/// For PNG, `lossy=true` enables palette quantization via libimagequant
-/// (reduces the image to up to 256 colors); when `lossy=false` the PNG
-/// is recompressed losslessly with `oxipng`.
-/// `no_zopfli` suppresses the optional `zopflipng` CLI post-pass on
-/// the lossy PNG path; ignored for other formats.
-/// `max_colors` caps the palette size used by the lossy PNG path
-/// (clamped to imagequant's `2..=256` range at the CLI). Ignored by
-/// other formats.
-/// `png_level` overrides the oxipng preset (0..=6) used for the PNG
-/// inner step. Higher is slower + smaller. Ignored for non-PNG
-/// formats. The `None` default preserves the per-mode defaults
-/// baked into the PNG optimizer (3 for lossless, 6 for lossy).
+/// Most fields are honored by a subset of formats only:
+/// - `quality`: 0-100 lossy quality hint. Honored by JPEG and WebP;
+///   ignored by GIF, SVG, and the lossless PNG path.
+/// - `lossy`: enables palette quantization on the PNG path. Honored
+///   by PNG; ignored by other formats (which already pick their own
+///   lossless/lossy behavior).
+/// - `no_zopfli`: suppresses the optional `zopflipng` CLI post-pass
+///   on the lossy PNG path. Ignored for other formats.
+/// - `max_colors`: caps the palette size used by the lossy PNG path
+///   (clamped to imagequant's `2..=256` range at the CLI). Ignored
+///   for other formats.
+/// - `png_level`: overrides the oxipng preset (0..=6) used for the
+///   PNG inner step. Higher is slower + smaller. Ignored for
+///   non-PNG formats. The `None` default preserves the per-mode
+///   defaults baked into the PNG optimizer (3 for lossless, 6 for
+///   the lossy inner step).
+///
+/// The struct replaces what used to be five positional args on
+/// `Optimizer::optimize`. New flags add fields here instead of
+/// widening the trait signature.
+#[derive(Debug, Clone, Default)]
+pub struct OptimizerOptions {
+    pub quality: Option<u8>,
+    pub lossy: bool,
+    pub no_zopfli: bool,
+    pub max_colors: Option<u32>,
+    pub png_level: Option<u8>,
+}
+
+/// Trait for format-specific optimizers.
 pub trait Optimizer: Send + Sync {
-    fn optimize(
-        &self,
-        bytes: &[u8],
-        quality: Option<u8>,
-        lossy: bool,
-        no_zopfli: bool,
-        max_colors: Option<u32>,
-        png_level: Option<u8>,
-    ) -> anyhow::Result<Vec<u8>>;
+    fn optimize(&self, bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>>;
 }
 
 pub fn for_format(format: Format) -> Box<dyn Optimizer> {

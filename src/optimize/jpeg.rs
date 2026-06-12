@@ -1,20 +1,12 @@
-use crate::optimize::Optimizer;
+use crate::optimize::{Optimizer, OptimizerOptions};
 
 const DEFAULT_QUALITY: u8 = 85;
 
 pub struct JpegOptimizer;
 
 impl Optimizer for JpegOptimizer {
-    fn optimize(
-        &self,
-        bytes: &[u8],
-        quality: Option<u8>,
-        _lossy: bool,
-        _no_zopfli: bool,
-        _max_colors: Option<u32>,
-        _png_level: Option<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        let q = quality.unwrap_or(DEFAULT_QUALITY);
+    fn optimize(&self, bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u8>> {
+        let q = opts.quality.unwrap_or(DEFAULT_QUALITY);
         let mut decoder = jpeg_decoder::Decoder::new(bytes);
         let pixels = decoder
             .decode()

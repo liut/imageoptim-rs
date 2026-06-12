@@ -1,5 +1,6 @@
 use imageoptim::detect::Format;
 use imageoptim::optimize::Optimizer;
+use imageoptim::optimize::OptimizerOptions;
 use imageoptim::optimize::gif::GifOptimizer;
 use imageoptim::optimize::jpeg::JpegOptimizer;
 use imageoptim::optimize::svg::SvgOptimizer;
@@ -54,7 +55,7 @@ fn jpeg_round_trip() {
     let optimizer = JpegOptimizer;
     let input = make_jpeg();
     let output = optimizer
-        .optimize(&input, None, false, false, None, None)
+        .optimize(&input, &OptimizerOptions::default())
         .expect("jpeg optimize");
     if output.len() < input.len() {
         assert!(
@@ -69,7 +70,7 @@ fn gif_round_trip() {
     let optimizer = GifOptimizer;
     let input = make_gif();
     let output = optimizer
-        .optimize(&input, None, false, false, None, None)
+        .optimize(&input, &OptimizerOptions::default())
         .expect("gif optimize");
     if output.len() < input.len() {
         assert!(
@@ -84,7 +85,7 @@ fn webp_round_trip() {
     let optimizer = WebpOptimizer;
     let input = make_webp();
     let output = optimizer
-        .optimize(&input, None, false, false, None, None)
+        .optimize(&input, &OptimizerOptions::default())
         .expect("webp optimize");
     if output.len() < input.len() {
         assert!(
@@ -99,7 +100,7 @@ fn svg_round_trip() {
     let optimizer = SvgOptimizer;
     let input = make_svg();
     let output = optimizer
-        .optimize(&input, None, false, false, None, None)
+        .optimize(&input, &OptimizerOptions::default())
         .expect("svg optimize");
     if output.len() < input.len() {
         assert!(
@@ -114,10 +115,22 @@ fn jpeg_quality_affects_output_size() {
     let optimizer = JpegOptimizer;
     let input = make_jpeg();
     let high = optimizer
-        .optimize(&input, Some(95), false, false, None, None)
+        .optimize(
+            &input,
+            &OptimizerOptions {
+                quality: Some(95),
+                ..Default::default()
+            },
+        )
         .expect("q=95");
     let low = optimizer
-        .optimize(&input, Some(20), false, false, None, None)
+        .optimize(
+            &input,
+            &OptimizerOptions {
+                quality: Some(20),
+                ..Default::default()
+            },
+        )
         .expect("q=20");
     assert!(
         low.len() < high.len(),
@@ -143,10 +156,16 @@ fn png_lossy_smaller_than_lossless() {
     let input = std::fs::read(&fixture).expect("read fixture");
     let optimizer = PngOptimizer;
     let lossless = optimizer
-        .optimize(&input, None, false, false, None, None)
+        .optimize(&input, &OptimizerOptions::default())
         .expect("lossless");
     let lossy = optimizer
-        .optimize(&input, None, true, false, None, None)
+        .optimize(
+            &input,
+            &OptimizerOptions {
+                lossy: true,
+                ..Default::default()
+            },
+        )
         .expect("lossy");
     assert!(
         lossy.len() < lossless.len(),
@@ -164,7 +183,14 @@ fn png_lossy_smaller_than_lossless() {
     // with the lossy path because zopflipng may or may not be installed
     // on the test host.)
     let lossy_no_zopfli = optimizer
-        .optimize(&input, None, true, true, None, None)
+        .optimize(
+            &input,
+            &OptimizerOptions {
+                lossy: true,
+                no_zopfli: true,
+                ..Default::default()
+            },
+        )
         .expect("lossy --no-zopfli");
     assert!(
         lossy_no_zopfli.len() < lossless.len(),
