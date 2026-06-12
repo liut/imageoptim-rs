@@ -82,6 +82,8 @@ Options:
       --fail-fast        Stop processing on the first per-file error
   -q, --quality <0-100>  Quality for lossy formats (0-100). Omit for lossless
   -j, --jobs <N>         Number of parallel workers
+  -v, --verbose          Print per-step optimization details to stderr
+      --summary-only     Suppress per-file result lines; print only the summary
   -h, --help             Print help
   -V, --version          Print version
 ```
@@ -119,6 +121,30 @@ Install options:
 - macOS: `brew install zopfli`
 - Debian / Ubuntu: `apt install zopfli`
 - From source: <https://github.com/google/zopfli>
+
+### Verbose mode (`-v` / `--verbose`)
+
+Pass `-v` to print per-step optimization details to stderr. For a PNG run, the trace looks like:
+
+```
+imageoptim: png lossy → decoded 1122x1402 RGBA8 (1573044 pixels)
+imageoptim:   imagequant q=80-100 max_colors=256 speed=3
+imageoptim:   imagequant produced 256 entries in the palette
+imageoptim:   oxipng preset 6 (zopfli iterations=12)
+imageoptim:   zopflipng not installed; skipped
+  [PNG] tests/example01.png saved 1.42 MB (64.04%)
+```
+
+The trace distinguishes "zopflipng not installed" from "zopflipng installed but failed" so you can tell at a glance whether installing `zopfli` would help. Other formats (JPEG, GIF, WebP, SVG) don't emit trace lines — their per-file result line carries the only meaningful detail. The per-file result line and the summary are unchanged; the trace is purely additive.
+
+### `--summary-only`
+
+Pass `--summary-only` to suppress the per-file `saved/skipped` line from stdout. The aggregate summary is still printed, and any failures still go to stderr. Useful in CI where you only care about the aggregate delta:
+
+```
+$ imageoptim --summary-only assets/**/*.png
+Processed 47 files, saved 12.34 MB (38.21%)
+```
 
 Numbers on `tests/example01.png` (a 2.27 MB RGB photo):
 
