@@ -212,6 +212,41 @@ other tests run as normal. To run the full suite end-to-end:
 cargo run --example gen-fixtures && cargo test
 ```
 
+If `tests/example01.png` already exists, `gen-fixtures` refuses to
+overwrite (it's a destructive op on a 2.89 MB fixture that you may have
+regenerated deliberately). Pass `--force` to overwrite:
+
+```sh
+cargo run --example gen-fixtures -- --force
+```
+
+### Cross-platform builds
+
+The code is portable pure Rust: no `#[cfg(target_os = ...)]`
+mismatches, no `sh -c` shell-outs, path handling via `std::path::Path`
+consistently. The only platform-specific branch is in `which()`'s
+Windows extension probe (`#[cfg(windows)]` for `.exe`/`.bat`/`.cmd`).
+
+CI on GitHub Actions builds and tests on
+`ubuntu-latest` / `macos-latest` / `windows-latest` on every push and
+PR to `main` (see `.github/workflows/ci.yml`). The release workflow
+(`.github/workflows/release.yml`) cross-compiles prebuilt binaries for
+`x86_64-unknown-linux-gnu`, `x86_64-apple-darwin`,
+`aarch64-apple-darwin`, and `x86_64-pc-windows-msvc` on every
+`v*.*.*` tag push, attaches them to a GitHub Release.
+
+For local cross-compile (no CI):
+
+- Install the std library for the target: `rustup target add
+  <triple>`. Requires network access to `static.rust-lang.org`.
+- Then `cargo check --target <triple>` verifies the crate's own
+  code compiles for that target. The first build of an unfamiliar
+  target downloads the sysroot (~100 MB) so the initial run can
+  take 1-2 minutes.
+- For a real binary, you also need the platform C toolchain
+  (`mingw-w64` for Windows GNU, MSVC build tools for Windows MSVC,
+  `musl-tools` for fully static Linux binaries).
+
 ## Comparison to ImageOptim-CLI
 
 | | ImageOptim-CLI | imageoptim-rs |
