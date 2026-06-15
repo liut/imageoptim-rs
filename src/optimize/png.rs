@@ -1,4 +1,5 @@
 use crate::optimize::{Optimizer, OptimizerOptions};
+use crate::report::bytes_human;
 use anyhow::Context;
 
 pub struct PngOptimizer;
@@ -75,7 +76,7 @@ fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u
     //    the lossy inner step is 6 (max compression).
     let level = opts.png_level.unwrap_or(6);
     if opts.verbose {
-        eprintln!("imageoptim:   oxipng preset {level} (zopfli iterations=12)");
+        eprintln!("imageoptim:   oxipng preset {level} (oxipng's internal zopfli, 12 iterations)");
     }
     let oxipng_opts = oxipng::Options::from_preset(level);
     let mut current = oxipng::optimize_from_memory(&palette_png, &oxipng_opts)
@@ -88,54 +89,30 @@ fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u
     //    not on $PATH.
     if !opts.no_zopfli {
         match run_zopflipng(&current) {
-            Some(zopfli_output) => {
+            ZopfliOutcome::Ran(zopfli_output) => {
                 if opts.verbose {
                     let saved = current.len() as i64 - zopfli_output.len() as i64;
-                    eprintln!("imageoptim:   zopflipng ran, saved {}", bytes_human(saved));
+                    eprintln!(
+                        "imageoptim:   zopflipng ran, saved {}",
+                        bytes_human(saved.max(0))
+                    );
                 }
                 current = zopfli_output;
             }
-            None => {
+            ZopfliOutcome::NotInstalled => {
                 if opts.verbose {
-                    if run_zopflipng_installed() {
-                        eprintln!("imageoptim:   zopflipng installed but failed; skipped");
-                    } else {
-                        eprintln!("imageoptim:   zopflipng not installed; skipped");
-                    }
+                    eprintln!("imageoptim:   zopflipng not installed; skipped");
+                }
+            }
+            ZopfliOutcome::Failed => {
+                if opts.verbose {
+                    eprintln!("imageoptim:   zopflipng installed but failed; skipped");
                 }
             }
         }
     }
 
     Ok(current)
-}
-
-/// Human-readable byte count for the verbose trace. Mirrors the
-/// reporter's `bytes_human` but inlined to avoid a circular dep
-/// (this module is already used by the reporter indirectly via
-/// the optimizer trait).
-fn bytes_human(n: i64) -> String {
-    let n = n.unsigned_abs();
-    const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
-    let mut value = n as f64;
-    let mut unit = 0;
-    while value >= 1024.0 && unit < UNITS.len() - 1 {
-        value /= 1024.0;
-        unit += 1;
-    }
-    if unit == 0 {
-        format!("{n} B")
-    } else {
-        format!("{value:.2} {}", UNITS[unit])
-    }
-}
-
-/// Re-runs the `which("zopflipng")` check that `run_zopflipng` does
-/// internally, but exposed for the verbose trace so we can
-/// distinguish "zopflipng not installed" from "zopflipng failed"
-/// in the user's stderr stream.
-fn run_zopflipng_installed() -> bool {
-    which("zopflipng").is_some()
 }
 
 fn decode_rgba(bytes: &[u8]) -> anyhow::Result<(Vec<imagequant::RGBA>, usize, usize)> {
@@ -247,10 +224,19 @@ fn encode_palette(
     Ok(out)
 }
 
+/// Three-state result of `run_zopflipng`. The caller uses this to
+/// distinguish "binary not on $PATH" from "binary failed" in the
+/// verbose trace without re-walking $PATH.
+enum ZopfliOutcome {
+    Ran(Vec<u8>),
+    NotInstalled,
+    Failed,
+}
+
 /// Runs `zopflipng` as a subprocess on the bytes we already have, if it
-/// is on `$PATH`. Returns `None` if the binary cannot be found (the
-/// caller should fall through with the input unchanged, and prints a
-/// one-time hint to stderr so the user knows they can install it).
+/// is on `$PATH`. Returns the appropriate [`ZopfliOutcome`] for each
+/// case (binary missing, binary present but invocation failed, or
+/// successful run with the output bytes).
 ///
 /// Mirrors ImageOptim.app's `ZopfliWorker.m` defaults:
 ///   --filters=0pme, --iterations=15, --keepchunks=...
@@ -259,7 +245,7 @@ fn encode_palette(
 /// and `--filters=p` for large inputs, matching ImageOptim's
 /// isLarge branch. We always strip ancillary chunks to match
 /// `PngOutRemoveChunks=true`.
-fn run_zopflipng(bytes: &[u8]) -> Option<Vec<u8>> {
+fn run_zopflipng(bytes: &[u8]) -> ZopfliOutcome {
     use std::sync::atomic::{AtomicBool, Ordering};
     static MISSING_WARNED: AtomicBool = AtomicBool::new(false);
     let zopflipng = match which("zopflipng") {
@@ -273,7 +259,7 @@ fn run_zopflipng(bytes: &[u8]) -> Option<Vec<u8>> {
                      for the final ~10-20% savings on the --lossy PNG path."
                 );
             }
-            return None;
+            return ZopfliOutcome::NotInstalled;
         }
     };
 
@@ -289,7 +275,7 @@ fn run_zopflipng(bytes: &[u8]) -> Option<Vec<u8>> {
     let iterations = 15;
 
     if std::fs::write(&input, bytes).is_err() {
-        return None;
+        return ZopfliOutcome::Failed;
     }
 
     let result = std::process::Command::new(&zopflipng)
@@ -311,15 +297,18 @@ fn run_zopflipng(bytes: &[u8]) -> Option<Vec<u8>> {
                 "imageoptim: zopflipng exited with status {}; skipping the post-pass",
                 r.status
             );
-            return None;
+            return ZopfliOutcome::Failed;
         }
         Err(e) => {
             eprintln!("imageoptim: failed to invoke zopflipng: {e}");
-            return None;
+            return ZopfliOutcome::Failed;
         }
     };
     let _ = result;
-    std::fs::read(&output).ok()
+    match std::fs::read(&output) {
+        Ok(bytes) => ZopfliOutcome::Ran(bytes),
+        Err(_) => ZopfliOutcome::Failed,
+    }
 }
 
 /// Minimal `which(1)`: looks up `name` in `$PATH`. Returns the first

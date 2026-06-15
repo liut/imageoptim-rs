@@ -141,12 +141,7 @@ fn summary_only_still_reports_failures() {
         "summary-only should suppress the failed per-file line on stdout, got: {stdout}"
     );
     assert!(
-        !stderr.is_empty(),
-        "summary-only should still report the failure on stderr, got empty stderr"
+        stderr.contains("failed"),
+        "summary-only should still report the failure on stderr, got: {stderr}"
     );
-    // The summary is not printed when the run exits with an error
-    // before reaching the summary block, but on success+empty input
-    // it is. We're testing the failure path here; we just need the
-    // error to surface, which the above `!stderr.is_empty()` checks.
-    let _ = stdout; // quiet the linter; we use stdout for the negative assertion above
 }

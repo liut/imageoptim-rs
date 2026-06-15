@@ -48,11 +48,6 @@ fn max_colors_reduces_output_at_small_n() {
     let size_256 = std::fs::metadata(&at_256).unwrap().len();
     let size_16 = std::fs::metadata(&at_16).unwrap().len();
     assert!(
-        size_16 <= size_256,
-        "N=16 ({size_16}) should be <= N=256 ({size_256}) on a real photo"
-    );
-    // And strictly smaller, with one of the two being the strictly smaller.
-    assert!(
         size_16 < size_256,
         "N=16 should be strictly smaller than N=256 (was {size_16} vs {size_256})"
     );

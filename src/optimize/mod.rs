@@ -32,7 +32,7 @@ pub mod webp;
 /// The struct replaces what used to be five positional args on
 /// `Optimizer::optimize`. New flags add fields here instead of
 /// widening the trait signature.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct OptimizerOptions {
     pub quality: Option<u8>,
     pub lossy: bool,

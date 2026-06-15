@@ -4,4 +4,5 @@
 
 pub mod detect;
 pub mod optimize;
+pub mod report;
 pub mod safety;
