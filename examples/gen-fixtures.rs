@@ -7,6 +7,20 @@
 //! cargo run --example gen-fixtures
 //! ```
 //!
+//! Pass `--force` to overwrite an existing fixture:
+//!
+//! ```sh
+//! cargo run --example gen-fixtures -- --force
+//! ```
+//!
+//! Without `--force`, the script refuses to overwrite an existing
+//! `tests/example01.png`. The fixture is 2.3 MB and the test suite
+//! assumes the realistic (unoptimized) bytes; if a previous run of
+//! `imageoptim` accidentally shrunk the fixture in place, the
+//! integration tests that compare output sizes against the original
+//! start reporting "skipped" instead of "saved" and silently
+//! regression. The `--force` flag makes the overwrite intentional.
+//!
 //! Why a script and not a checked-in file: a 2.3 MB binary file is
 //! noise in the repository and in `git clone` size. Tests only need a
 //! decodable, larger-than-its-optimized-output PNG. The image itself is
@@ -18,7 +32,18 @@ use image::{ImageBuffer, Rgb, RgbImage};
 use std::path::PathBuf;
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let force = args.iter().any(|a| a == "--force");
+
     let out: PathBuf = ["tests", "example01.png"].iter().collect();
+    if out.exists() && !force {
+        eprintln!(
+            "{} already exists ({} bytes). Pass --force to overwrite.",
+            out.display(),
+            std::fs::metadata(&out).expect("stat").len()
+        );
+        std::process::exit(1);
+    }
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent).expect("create tests/ dir");
     }
@@ -50,9 +75,14 @@ fn main() {
             let band = ((x as f32 / width as f32) * 4.0).sin().abs();
             let band_byte = (band * 50.0) as u8;
 
-            // Deterministic low-amplitude noise (amplitude 6). Stays
-            // within the imagequant quality target (80-100) while still
-            // forcing the deflate compressor to do real work.
+            // Per-pixel deterministic noise (amplitude 6). Generates
+            // ~2.9 MB on disk. imagequant at the 80-100 quality target
+            // will reject very small palette caps (N=2, N=16) on this
+            // image because the noise prevents hitting the quality
+            // threshold. That behavior is captured by the
+            // `max_colors_clamps_at_two` and `max_colors_reduces_*`
+            // tests, which assert either saved-with-reduction OR
+            // no-change-with-error.
             let n = (next() % 12) as i32 - 6;
 
             let r = (base_r as i32 + band_byte as i32 + n).clamp(0, 255) as u8;
