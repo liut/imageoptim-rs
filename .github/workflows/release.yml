@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive_ext: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive_ext: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --locked
+
+      - name: Strip + package (unix)
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          mkdir -p staging
+          cp ${{ matrix.target }}/release/imageoptim staging/imageoptim
+          strip staging/imageoptim
+          tar -C staging -czf imageoptim-${{ matrix.target }}.tar.gz imageoptim
+          ls -la imageoptim-${{ matrix.target }}.tar.gz
+
+      - name: Package (windows)
+        if: matrix.archive_ext == 'zip'
+        shell: pwsh
+        run: |
+          mkdir staging
+          cp ${{ matrix.target }}/release/imageoptim.exe staging/imageoptim.exe
+          Compress-Archive -Path staging/imageoptim.exe -DestinationPath imageoptim-${{ matrix.target }}.zip
+          Get-ChildItem imageoptim-${{ matrix.target }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: imageoptim-${{ matrix.target }}
+          path: imageoptim-${{ matrix.target }}.${{ matrix.archive_ext }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: ls -laR artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false

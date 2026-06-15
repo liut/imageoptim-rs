@@ -52,7 +52,7 @@ imageoptim '**/*.{png,jpg,gif,webp,svg}' -j 4
 | Format | Optimizer | Notes |
 | --- | --- | --- |
 | PNG | `oxipng` (lossless) or `imagequant` (lossy with `--lossy`) | Lossless by default; `--lossy` quantizes to up to 256 colors, tunable via `--max-colors`; oxipng preset is tunable via `--png-optimization-level` |
-| JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding, default quality 85 |
+| JPEG | `jpeg-decoder` + `jpeg-encoder` | Lossy re-encoding, default quality 85; EXIF/IPTC/XMP/ICC/comment markers in the input are dropped implicitly (the encoder re-encodes from raw pixels and only emits the required JFIF APP0 header) |
 | GIF | `gif` crate | Indexed re-encoding with NeuQuant (quality flag ignored) |
 | WebP | `webp` + `image` | Lossy re-encoding when `--quality` is set, lossless otherwise |
 | SVG | `usvg` | Canonical re-serialization; not a full minifier (quality flag ignored) |

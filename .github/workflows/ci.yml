@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Cache cargo registry & target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Generate test fixture
+        # `tests/example01.png` is git-ignored. The integration tests
+        # that need a realistic photo skip when the file is absent, but
+        # the lossy/lossless/--max-colors/--png-optimization-level paths
+        # are not exercised without it. gen-fixtures writes a 2.3 MB
+        # deterministic synthetic photo in ~3s.
+        run: cargo run --example gen-fixtures
+
+      - name: Build
+        run: cargo build --verbose --all-targets
+
+      - name: Test
+        run: cargo test --verbose --no-fail-fast
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: fmt
+        run: cargo fmt --check
