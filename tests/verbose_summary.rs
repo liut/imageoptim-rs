@@ -9,21 +9,29 @@ fn bin() -> Command {
     Command::new(env!("CARGO_BIN_EXE_imageoptim"))
 }
 
-fn fixture_path() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/example01.png")
+/// Write a 1x1 RGB PNG to `path`. The full lossy pipeline runs
+/// against it (decode → imagequant → oxipng → zopflipng-or-no)
+/// and every verbose trace line is emitted, but the file is tiny
+/// (~70 B) so each invocation is ~50-100x faster than driving
+/// the 2.3 MB `tests/example01.png` fixture. Use this for tests
+/// that only need to assert on string presence/absence in the
+/// output streams — not for tests that need a real photo for
+/// size-delta assertions.
+fn write_one_pixel_png(path: &std::path::Path) {
+    use image::{ImageBuffer, Rgb};
+    let img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_fn(1, 1, |_, _| Rgb([255, 0, 0]));
+    let mut out = Vec::new();
+    image::DynamicImage::ImageRgb8(img)
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+        .unwrap();
+    std::fs::write(path, &out).unwrap();
 }
 
 #[test]
 fn verbose_emits_step_details_to_stderr() {
-    let fixture = fixture_path();
-    if !fixture.exists() {
-        eprintln!("skipping: {} not present", fixture.display());
-        return;
-    }
-
     let dir = tempdir().unwrap();
-    let input = dir.path().join("example01.png");
-    std::fs::copy(&fixture, &input).unwrap();
+    let input = dir.path().join("one.png");
+    write_one_pixel_png(&input);
 
     let r = bin()
         .arg(&input)
@@ -56,15 +64,9 @@ fn verbose_off_does_not_emit_step_trace() {
     // Same setup as the verbose test, but without --verbose. Stderr
     // should be quiet for the per-step trace. (Errors that go to
     // stderr are unaffected — we're not testing errors here.)
-    let fixture = fixture_path();
-    if !fixture.exists() {
-        eprintln!("skipping: {} not present", fixture.display());
-        return;
-    }
-
     let dir = tempdir().unwrap();
-    let input = dir.path().join("example01.png");
-    std::fs::copy(&fixture, &input).unwrap();
+    let input = dir.path().join("one.png");
+    write_one_pixel_png(&input);
 
     let r = bin()
         .arg(&input)
@@ -87,15 +89,9 @@ fn verbose_off_does_not_emit_step_trace() {
 
 #[test]
 fn summary_only_suppresses_per_file_lines() {
-    let fixture = fixture_path();
-    if !fixture.exists() {
-        eprintln!("skipping: {} not present", fixture.display());
-        return;
-    }
-
     let dir = tempdir().unwrap();
-    let input = dir.path().join("example01.png");
-    std::fs::copy(&fixture, &input).unwrap();
+    let input = dir.path().join("one.png");
+    write_one_pixel_png(&input);
 
     let r = bin()
         .arg(&input)

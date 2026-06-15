@@ -1,6 +1,14 @@
 use crate::optimize::{Optimizer, OptimizerOptions};
 use crate::report::bytes_human;
 use anyhow::Context;
+use std::sync::atomic::AtomicU64;
+
+/// Mirrors imagequant's built-in default when `set_max_colors` is
+/// not called. The verbose trace prints this value when the user
+/// did not pass `--max-colors`; keeping it in one place ensures the
+/// trace can't silently desync from the real default if imagequant
+/// ever changes its cap.
+const IMAGEQUANT_DEFAULT_MAX_COLORS: u32 = 256;
 
 pub struct PngOptimizer;
 
@@ -47,14 +55,14 @@ fn optimize_lossy(bytes: &[u8], opts: &OptimizerOptions) -> anyhow::Result<Vec<u
     attr.set_quality(80, 100)
         .context("imagequant: set_quality")?;
     attr.set_speed(3).context("imagequant: set_speed")?;
-    if opts.verbose {
-        let cap = opts.max_colors.unwrap_or(256);
-        eprintln!("imageoptim:   imagequant q=80-100 max_colors={cap} speed=3");
-    }
     let mut img = attr
         .new_image_borrowed(&pixels, width, height, 0.0)
         .context("imagequant: new_image")?;
     let mut res = attr.quantize(&mut img).context("imagequant: quantize")?;
+    if opts.verbose {
+        let cap = opts.max_colors.unwrap_or(IMAGEQUANT_DEFAULT_MAX_COLORS);
+        eprintln!("imageoptim:   imagequant q=80-100 max_colors={cap} speed=3");
+    }
     let (palette, indices) = res.remapped(&mut img).context("imagequant: remapped")?;
     if opts.verbose {
         eprintln!(
@@ -233,6 +241,16 @@ enum ZopfliOutcome {
     Failed,
 }
 
+/// Process-global counter for zopflipng temp file uniqueness. Without
+/// this, concurrent callers in the same process (rayon workers
+/// processing multiple lossy PNGs in parallel) would race on the
+/// `imageoptim-zopfli-{pid}.png` path — last writer wins on the
+/// input file, and one thread can `fs::read` the other's freshly-
+/// written output as its own optimized result. The counter is
+/// combined with `process::id()` to also stay unique across
+/// concurrent invocations of the binary.
+static ZOPFLI_SEQ: AtomicU64 = AtomicU64::new(0);
+
 /// Runs `zopflipng` as a subprocess on the bytes we already have, if it
 /// is on `$PATH`. Returns the appropriate [`ZopfliOutcome`] for each
 /// case (binary missing, binary present but invocation failed, or
@@ -264,7 +282,12 @@ fn run_zopflipng(bytes: &[u8]) -> ZopfliOutcome {
     };
 
     let mut input = std::env::temp_dir();
-    input.push(format!("imageoptim-zopfli-{}.png", std::process::id()));
+    let seq = ZOPFLI_SEQ.fetch_add(1, Ordering::Relaxed);
+    input.push(format!(
+        "imageoptim-zopfli-{}-{}.png",
+        std::process::id(),
+        seq
+    ));
     let mut output = input.clone();
     output.set_extension("out.png");
 

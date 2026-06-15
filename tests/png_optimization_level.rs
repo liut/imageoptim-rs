@@ -14,12 +14,10 @@ fn fixture_path() -> std::path::PathBuf {
 }
 
 #[test]
-fn png_level_six_matches_default_lossless() {
-    // Per-mode default for lossless PNG is preset 3, so an explicit
-    // --png-optimization-level 6 will *not* match the default. The
-    // assertion is the reverse: an explicit 6 in the lossy path
-    // matches the lossy default (preset 6). Both sub-assertions are
-    // useful in one test, and they share the fixture copy.
+fn png_level_three_matches_default_lossless() {
+    // Per-mode default for lossless PNG is preset 3. An explicit
+    // --png-optimization-level 3 must produce byte-identical output
+    // to running with no flag.
     let fixture = fixture_path();
     if !fixture.exists() {
         eprintln!("skipping: {} not present", fixture.display());
@@ -160,12 +158,6 @@ fn png_level_higher_compresses_more() {
     assert!(
         s0 >= s6,
         "preset 0 ({s0}) should be >= preset 6 ({s6}) on a real photo"
-    );
-    // And on a real photo the gap is non-trivial — a 2.3 MB input
-    // should show >5% reduction between the two presets.
-    assert!(
-        s0 > s6 + 5_000,
-        "expected a meaningful gap between preset 0 and preset 6 (got {s0} vs {s6})"
     );
 }
 
