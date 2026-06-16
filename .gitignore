@@ -5,6 +5,9 @@
 
 # Cargo
 # (binary project: keep Cargo.lock for reproducible builds)
+# Un-ignore Cargo.lock specifically; the global gitignore's `*.lock`
+# rule (from ~/.gitignore_global) would otherwise drop it.
+!Cargo.lock
 
 # IDE
 .idea/
