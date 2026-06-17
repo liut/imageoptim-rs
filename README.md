@@ -29,10 +29,26 @@ sudo install -b imageoptim /usr/local/bin/
 curl -L https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-aarch64-apple-darwin.tar.gz | tar xz
 sudo install -b imageoptim /usr/local/bin/
 
-# Windows (PowerShell)
-Invoke-WebRequest -Uri https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-x86_64-pc-windows-msvc.zip -OutFile imageoptim.zip
-Expand-Archive imageoptim.zip
-Move-Item imageoptim\imageoptim.exe $env:LOCALAPPDATA\Microsoft\WindowsApps\
+# Windows (PowerShell 5.1+)
+$ErrorActionPreference = 'Stop'
+$installDir = "$env:LOCALAPPDATA\Programs\imageoptim"
+$zipPath = Join-Path $env:TEMP 'imageoptim.zip'
+
+Invoke-WebRequest -Uri 'https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-x86_64-pc-windows-msvc.zip' -OutFile $zipPath -UseBasicParsing
+
+New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
+
+# Add install dir to user PATH (persistent for new shells)
+$currentUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ($currentUserPath -notlike "*$installDir*") {
+    [Environment]::SetEnvironmentVariable('Path', "$currentUserPath;$installDir", 'User')
+}
+# Also update the current shell's PATH
+$env:Path = "$env:Path;$installDir"
+
+# Verify the install
+imageoptim --version
 ```
 
 ### From source
