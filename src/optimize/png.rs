@@ -127,11 +127,22 @@ fn decode_rgba(bytes: &[u8]) -> anyhow::Result<(Vec<imagequant::RGBA>, usize, us
     let cursor = std::io::Cursor::new(bytes);
     let decoder = png::Decoder::new(cursor);
     let mut reader = decoder.read_info().context("png decode")?;
-    let info = reader.info();
-    let w = info.width as usize;
-    let h = info.height as usize;
-    let color = info.color_type;
-    let bit_depth = info.bit_depth as u8;
+    // Extract everything we need from `info` *before* the
+    // mutable `next_frame` borrow. Otherwise the immutable
+    // borrow on `info.palette` / `info.trns` (used below in
+    // the Indexed arm) conflicts with the mutable borrow on
+    // `reader` for `next_frame`.
+    let (w, h, color, bit_depth, palette, trns) = {
+        let info = reader.info();
+        (
+            info.width as usize,
+            info.height as usize,
+            info.color_type,
+            info.bit_depth as u8,
+            info.palette.clone(),
+            info.trns.clone(),
+        )
+    };
 
     // Decode into a contiguous RGBA8 buffer.
     let mut raw = vec![0u8; reader.output_buffer_size()];
@@ -180,9 +191,55 @@ fn decode_rgba(bytes: &[u8]) -> anyhow::Result<(Vec<imagequant::RGBA>, usize, us
                 });
             }
         }
+        (png::ColorType::Indexed, 8) => {
+            // Palette PNG (color_type=3) — the standard output of
+            // imagequant, oxipng, pngquant, and most palette
+            // optimizers. The IDAT chunks contain indices into
+            // the PLTE chunk; we expand them to RGBA using the
+            // palette and (if present) the tRNS alpha table.
+            //
+            // This arm exists so a re-run of `imageoptim` on its
+            // own lossy output (palette PNG) still works. Without
+            // it, the match would fall through to the catch-all
+            // arm, which depends on the `image` crate's PNG
+            // feature — and we trim that feature out of the
+            // production dependency to keep the binary small.
+            let palette = palette
+                .as_ref()
+                .context("indexed PNG without a PLTE chunk")?;
+            if palette.len() % 3 != 0 {
+                anyhow::bail!(
+                    "malformed palette: length {} is not a multiple of 3",
+                    palette.len()
+                );
+            }
+            for &idx in buf {
+                let i = (idx as usize) * 3;
+                if i + 3 > palette.len() {
+                    anyhow::bail!(
+                        "palette index {idx} out of bounds (palette has {} entries)",
+                        palette.len() / 3
+                    );
+                }
+                let alpha = trns
+                    .as_ref()
+                    .and_then(|t| t.get(idx as usize).copied())
+                    .unwrap_or(255);
+                rgba.push(imagequant::RGBA {
+                    r: palette[i],
+                    g: palette[i + 1],
+                    b: palette[i + 2],
+                    a: alpha,
+                });
+            }
+        }
         _ => {
-            // For any other bit-depth / color-type combination, re-encode
-            // via the image crate as a baseline 8-bit RGBA.
+            // For any other bit-depth / color-type combination
+            // (1/2/4/16-bit depth, or unknown color types), fall
+            // back to the `image` crate, which can normalize any
+            // PNG to 8-bit RGBA. The `image` crate is included as
+            // a dependency for the webp path (`webp::Encoder::
+            // from_image`); this fallback shares that same dep.
             let dyn_img = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
                 .context("png re-decode via image crate")?
                 .to_rgba8();

@@ -20,6 +20,17 @@ jpeg-encoder = { version = "0.6", default-features = false }
 [dev-dependencies]
 tempfile = "3.13"
 
+# The tests and `examples/gen-fixtures.rs` write PNG (and one
+# test writes a GIF for round-trip verification) via the
+# `image` crate. The production dep above is intentionally
+# feature-trimmed to just `webp` (the only format the
+# production webp optimizer actually needs); dev work and
+# fixture generation need PNG/GIF on top of that, hence
+# the explicit dev-dep with the relevant features.
+[dev-dependencies.image]
+version = "0.25"
+features = ["png", "gif"]
+
 [dependencies.oxipng]
 version = "9.1"
 default-features = false
@@ -43,9 +54,12 @@ version = "4.4"
 
 [dependencies.image]
 version = "0.25"
+default-features = false
+features = ["webp"]
 
 [profile.release]
-opt-level = 3
-lto = "thin"
+opt-level = "s"
+lto = "fat"
 codegen-units = 1
-strip = "symbols"
+strip = true
+panic = "abort"
