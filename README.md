@@ -23,11 +23,11 @@ runtime dependencies, drop it anywhere on your `$PATH`.
 ```bash
 # Linux x86_64
 curl -L https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-x86_64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv imageoptim /usr/local/bin/
+sudo install -b imageoptim /usr/local/bin/
 
 # macOS (Apple Silicon)
 curl -L https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-aarch64-apple-darwin.tar.gz | tar xz
-sudo mv imageoptim /usr/local/bin/
+sudo install -b imageoptim /usr/local/bin/
 
 # Windows (PowerShell)
 Invoke-WebRequest -Uri https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-x86_64-pc-windows-msvc.zip -OutFile imageoptim.zip
