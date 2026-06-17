@@ -1,25 +1,51 @@
 # imageoptim-rs
 
+[![Release](https://img.shields.io/github/v/release/liut/imageoptim-rs)](https://github.com/liut/imageoptim-rs/releases/latest)
+[![CI](https://github.com/liut/imageoptim-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/liut/imageoptim-rs/actions/workflows/ci.yml)
+[![License: GPL v3+](https://img.shields.io/badge/License-GPLv3+-blue.svg)](LICENSE)
+
 A cross-platform image optimization CLI powered by native Rust crates.
 
-Inspired by [`JamieMason/ImageOptim-CLI`](https://github.com/JamieMason/ImageOptim-CLI) (3.5k stars, archived 2023-11), but unlike the original — which is a macOS-only AppleScript orchestrator that drives GUI applications — `imageoptim-rs` uses Rust crates directly. It runs on macOS, Linux, and Windows with no runtime dependencies beyond the C standard library, and ships as a single static binary.
+Inspired by [`JamieMason/ImageOptim-CLI`](https://github.com/JamieMason/ImageOptim-CLI) (3.5k stars, archived 2023-11), but unlike the original — which is a macOS-only AppleScript orchestrator that drives GUI applications — `imageoptim-rs` uses Rust crates directly. It runs on macOS, Linux, and Windows with no runtime dependencies beyond the C standard library, and ships as a single static binary. Prebuilt binaries for `x86_64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, and `x86_64-pc-windows-msvc` are attached to every [GitHub Release](https://github.com/liut/imageoptim-rs/releases).
 
 > **License notice.** `imageoptim-rs` is licensed under **GPL-3.0-or-later**. This is a copyleft license: any binary you distribute that links against this code must also be GPL-3.0-or-later, and you must provide source. The GPL license is required because the optional lossy PNG path links against [libimagequant](https://github.com/ImageOptim/libimagequant), which is GPL. If you cannot accept GPL terms, do not use the binary.
 
 ## Install
 
+### Prebuilt binary (recommended)
+
+Download the archive for your platform from the
+[latest release](https://github.com/liut/imageoptim-rs/releases/latest)
+and extract it. The archive contains a single `imageoptim` (or
+`imageoptim.exe` on Windows) executable — no installer, no
+runtime dependencies, drop it anywhere on your `$PATH`.
+
 ```bash
-cargo install --git https://github.com/yourname/imageoptim-rs
+# Linux x86_64
+curl -L https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-x86_64-unknown-linux-gnu.tar.gz | tar xz
+sudo mv imageoptim /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -L https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-aarch64-apple-darwin.tar.gz | tar xz
+sudo mv imageoptim /usr/local/bin/
+
+# Windows (PowerShell)
+Invoke-WebRequest -Uri https://github.com/liut/imageoptim-rs/releases/latest/download/imageoptim-x86_64-pc-windows-msvc.zip -OutFile imageoptim.zip
+Expand-Archive imageoptim.zip
+Move-Item imageoptim\imageoptim.exe $env:LOCALAPPDATA\Microsoft\WindowsApps\
 ```
 
-Or build from source:
+### From source
 
 ```bash
-git clone https://github.com/yourname/imageoptim-rs
+git clone https://github.com/liut/imageoptim-rs
 cd imageoptim-rs
 cargo build --release
 ./target/release/imageoptim --help
 ```
+
+The same `cargo install --path .` works locally and pins the
+build to the exact source tree you have checked out.
 
 ## Quickstart
 
@@ -130,9 +156,9 @@ Pass `-v` to print per-step optimization details to stderr. For a PNG run, the t
 imageoptim: png lossy → decoded 1122x1402 RGBA8 (1573044 pixels)
 imageoptim:   imagequant q=80-100 max_colors=256 speed=3
 imageoptim:   imagequant produced 256 entries in the palette
-imageoptim:   oxipng preset 6 (zopfli iterations=12)
+imageoptim:   oxipng preset 6 (oxipng's internal zopfli, 12 iterations)
 imageoptim:   zopflipng not installed; skipped
-  [PNG] tests/example01.png saved 1.42 MB (64.04%)
+  [PNG] tests/example01.png saved 2.30 MB (80.61%)
 ```
 
 The trace distinguishes "zopflipng not installed" from "zopflipng installed but failed" so you can tell at a glance whether installing `zopfli` would help. Other formats (JPEG, GIF, WebP, SVG) don't emit trace lines — their per-file result line carries the only meaningful detail. The per-file result line and the summary are unchanged; the trace is purely additive.
